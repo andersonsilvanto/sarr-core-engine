@@ -17,11 +17,13 @@ from core import (
     OperationalLimitExceeded,
     RunState,
     ScopeValidationError,
-    TelemetryUnavailable,
     resolve_data_directory,
 )
 from sarr_core.metadata import MetadataExportError, MetadataManager
-from sarr_core.simulation import LocalSimulationSession
+from sarr_core.simulation import (
+    LocalSimulationSession,
+    SecurityScenario,
+)
 
 
 def _print_status() -> None:
@@ -31,27 +33,21 @@ def _print_status() -> None:
     print("Kill-switch: inativo")
 
 
-def _run_simulation() -> None:
-    session = LocalSimulationSession()
+def _run_simulation(scenario: SecurityScenario) -> int:
+    session = LocalSimulationSession(scenario)
     try:
         snapshot = session.run()
-        sample = snapshot.telemetry
-        if sample is None:
-            raise RuntimeError("Simulation completed without a telemetry sample.")
-        print("SARR-Core Engine - simulação local")
+        print("SARR-Core Engine - auditoria defensiva local")
         print(f"run_id: {snapshot.run_id}")
         print(f"Dados: {session.data_directory}")
-        print("Destino: 127.0.0.1")
-        print(
-            "Telemetria: "
-            f"CPU={sample.cpu_percent:.2f}% "
-            f"RAM={sample.ram_percent:.2f}% "
-            f"RTT={sample.rtt_ms:.2f}ms "
-            f"drop={sample.drop_rate:.4f}"
-        )
+        print(f"Cenário: {scenario.value}")
+        print("Evidências: inventário local fornecido e fixtures sintéticas; sem sondagem de rede.")
+        for finding in snapshot.findings:
+            print(f"Achado [{finding.severity}]: {finding.event_name} — {finding.summary}")
         for timestamp, event_name in session.event_log():
             print(f"{timestamp} {event_name}")
         print(f"Estado final: {snapshot.state.value}")
+        return 2 if snapshot.state is RunState.BLOCKED else 0
     finally:
         session.close()
 
@@ -123,7 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_argument(
         "--run-sim",
         action="store_true",
-        help="executa uma simulação de telemetria limitada a 127.0.0.1",
+        help="executa uma auditoria defensiva offline com evidências locais/sintéticas",
     )
     commands.add_argument(
         "--gui",
@@ -140,6 +136,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="exporta o schema JSON do dashboard para config/",
     )
+    parser.add_argument(
+        "--scenario",
+        choices=tuple(scenario.value for scenario in SecurityScenario),
+        default=SecurityScenario.NORMAL.value,
+        help="cenário sintético para --run-sim",
+    )
     return parser
 
 
@@ -149,7 +151,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_status()
     try:
         if arguments.run_sim:
-            _run_simulation()
+            return_code = _run_simulation(SecurityScenario(arguments.scenario))
+        else:
+            return_code = 0
         if arguments.export_metadata:
             _export_metadata()
         if arguments.export_dashboard:
@@ -172,7 +176,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         MetadataExportError,
         OperationalLimitExceeded,
         ScopeValidationError,
-        TelemetryUnavailable,
         ImportError,
         OSError,
         RuntimeError,
@@ -181,7 +184,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ) as error:
         print(f"Execução bloqueada/falhou: {error}", file=sys.stderr)
         return 1
-    return 0
+    return return_code
 
 
 if __name__ == "__main__":

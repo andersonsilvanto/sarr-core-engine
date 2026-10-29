@@ -106,6 +106,7 @@ virtual:
 ```bat
 .venv\Scripts\python.exe -m sarr_core --status
 .venv\Scripts\python.exe -m sarr_core --run-sim
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario unauthorized-port
 .venv\Scripts\python.exe -m sarr_core.cli --gui
 ```
 
@@ -117,10 +118,11 @@ No Linux/macOS, o equivalente é
 `LOCALAPPDATA` no Windows e segue `XDG_DATA_HOME` (ou `~/.local/share`) no
 Linux; no macOS usa `~/Library/Application Support`.
 
-`--gui` abre o painel Tk local com estado, CPU/RAM/RTT, eventos, início da
-simulação de loopback e um botão de kill-switch. O módulo gráfico importa a
-fachada de aplicação `sarr_core.simulation`; ele não manipula diretamente a
-máquina de estados ou os repositórios do motor.
+`--gui` abre o painel SOC Tk local: postura (`SECURE`, `VULNERABLE` ou
+`ATTACK / KILL-SWITCH`), tabela de findings, console SIEM com severidade e
+controles para iniciar a auditoria ou acionar o kill-switch manual. A interface
+importa a fachada `sarr_core.simulation`; não manipula diretamente a máquina de
+estados ou os repositórios do motor.
 
 Para exportar o JSON da última execução persistida ou o schema do dashboard:
 
@@ -141,10 +143,16 @@ grafo estrito de transições; validação de escopo e autorização de operaç�
 continuam centralizadas em `CoreOrchestrator`, que é o fluxo recomendado para
 execução real ou simulada.
 
-`--status` não inicia uma execução. `--run-sim` cria um escopo temporário
-restrito a `127.0.0.1`, valida-o pelo fluxo fail-closed do orquestrador e roda
-uma única amostra do servidor de demonstração local. A simulação não envia
-requisições para hosts externos.
+`--status` não inicia uma execução. `--run-sim` cria e valida um escopo
+temporário restrito a `127.0.0.1`, depois processa apenas inventário explicitamente
+local, hashes dos schemas do projeto e cenários sintéticos. Não abre sockets,
+sonda portas reais, envia requisições, nem tenta autenticação. Os cenários
+disponíveis são `normal`, `unauthorized-port`, `integrity-mismatch`,
+`brute-force` e `manual-interruption`; os cenários de risco disparam o
+kill-switch e terminam em `BLOCKED`. Os hashes de referência dos schemas são
+fixados no código e precisam ser revisados intencionalmente quando esses arquivos
+forem atualizados. A verificação de permissões POSIX é somente leitura; no
+Windows, a auditoria registra explicitamente que ACLs não foram verificadas.
 
 ## Diretório de dados
 
@@ -160,11 +168,11 @@ O checklist atual e o status de prontidão estão em
 [`release-checklist.md`](release-checklist.md). O estado é source-only: não
 há executável portátil nem validação em uma máquina limpa nesta etapa.
 
-## Simulação local de telemetria
+## Testes legados de resiliência HTTP
 
-Os cenários de resiliência usam exclusivamente um servidor HTTP vinculado a
-`127.0.0.1`. O probe fixa o host e o caminho (`/telemetry`), sem aceitar URLs
-externas, redirects ou destinos configuráveis:
+O subsistema `core.demo_server` permanece disponível para os testes de
+resiliência legados. Ele vincula um servidor de demonstração somente a
+`127.0.0.1`; a CLI e o painel de auditoria atuais não o utilizam:
 
 ```python
 from core import (
@@ -186,12 +194,10 @@ with LocalDemoServer(TelemetryScenario.NORMAL_LATENCY) as server:
     sample = probe.sample()
 ```
 
-`TelemetryScenario` oferece `NORMAL_LATENCY`, `HIGH_RTT`, `HIGH_5XX_RATE`,
-`MISSING_TELEMETRY` e `MANUAL_INTERRUPTION`. Os limites de RTT e respostas 5xx
-continuam sendo aplicados pelo `OperationalLimitEnforcer`; a falta de
-telemetria e a interrupção manual acionam o kill-switch. Quando ele abre, o
-circuit breaker rejeita novas amostras. O servidor restringe o número máximo
-de requisições para manter os testes locais e limitados.
+Os testes existentes para `TelemetryScenario` ainda verificam RTT, respostas
+5xx, telemetria ausente e interrupção manual em loopback, sem acesso a redes
+externas. Eles são infraestrutura de teste preexistente, não uma coleta de
+métricas de hardware nem parte do fluxo atual de `--run-sim`.
 
 ## Relatórios estruturados de auditoria
 

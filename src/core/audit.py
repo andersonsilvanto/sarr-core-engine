@@ -52,6 +52,30 @@ _AUDIT_FIELDS: dict[str, tuple[str, ...]] = {
     "finding.created": ("finding_id", "severity"),
     "module.executed": ("module",),
     "approval.created": ("approval_id", "decision"),
+    "security.audit.started": ("port_evidence_count", "integrity_check_count"),
+    "security.audit.completed": ("finding_count",),
+    "security.port.reviewed": ("host", "port", "service"),
+    "security.port.exposed": ("host", "port", "service"),
+    "integrity.hash.verified": ("path", "sha256"),
+    "integrity.hash.mismatch": (
+        "path",
+        "expected_sha256",
+        "actual_sha256",
+    ),
+    "integrity.audit.failed": ("path", "error_type"),
+    "security.permission.audit_unavailable": ("path", "platform"),
+    "security.permission.audit_failed": ("path", "error_type"),
+    "security.permission.excessive": (
+        "path",
+        "group_writable",
+        "world_writable",
+    ),
+    "security.permission.verified": (
+        "path",
+        "group_writable",
+        "world_writable",
+    ),
+    "auth.brute_force.detected": ("failure_count", "threshold", "source"),
 }
 
 

@@ -1,0 +1,16 @@
+REGRAS OBRIGATÓRIAS:
+1. Mantenha a arquitetura Fail-Closed e a portabilidade via pathlib.
+2. Remova o foco de métricas genéricas de sistema (CPU e RAM) da simulação e substitua por verificações de segurança de cibersegurança.
+
+---
+
+CONTEXTO E OBJETIVO:
+Precisamos realinhar o **SARR-Core Engine** (`andersonsilvanto/sarr-core-engine`) estritamente para o escopo de **cibersegurança defensiva, auditoria e simulação de ameaças (Red/Blue Teaming)**. 
+
+Sua missão nesta etapa é refatorar o motor de simulação (`simulation.py` e o core) para que, em vez de coletar uso de hardware, ele execute simulações voltadas à segurança:
+1. **Varredura de Portas e Serviços Locais:** Simular a verificação de portas abertas (ex: portas comuns vulneráveis) e serviços rodando localmente (localhost / 127.0.0.1).
+2. **Auditoria de Permissões e Arquivos Críticos:** Verificar se arquivos de configuração ou scripts do ambiente possuem permissões excessivas ou falhas de integridade.
+3. **Detecção de Anomalias e Tentativas de Intrusão:** Gerar eventos de segurança reais no log da máquina de estados (ex: `security.port.exposed`, `auth.brute_force.detected`, `integrity.hash.mismatch`).
+4. **Kill-Switch Defensivo:** Garantir que, se uma falha crítica ou porta não autorizada for encontrada na auditoria, o motor dispare o estado de bloqueio imediato (*fail-closed*).
+
+Atualize os arquivos de simulação e os testes unitários correspondentes para refletir esta nova identidade focada em cibersegurança.

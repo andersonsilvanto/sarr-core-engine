@@ -1,0 +1,17 @@
+REGRAS OBRIGATÓRIAS:
+1. Mantenha o design limpo em Tkinter/CustomTkinter e portabilidade cross-platform sem caminhos absolutos.
+
+---
+
+CONTEXTO E OBJETIVO:
+Queremos transformar a interface gráfica (`gui.py`) do **SARR-Core Engine** num verdadeiro **Painel SOC (Security Operations Center)** local para análise de vulnerabilidades.
+
+Sua missão é atualizar o painel visual para exibir:
+1. **Status de Postura de Segurança:** Mostrar se o sistema está *SECURE*, *VULNERABLE* ou sob *ATTACK/KILL-SWITCH*.
+2. **Painel de Descobertas (Findings):** Uma tabela ou lista na interface que exiba as vulnerabilidades encontradas durante a varredura (ex: Porta aberta, arquivo desprotegido, anomalia de rede).
+3. **Consola de Eventos de SIEM:** Atualizar o log inferior para mostrar eventos de segurança formatados com severidade (INFO, WARNING, CRITICAL).
+4. **Botões de Ação Práticos:** 
+   - "Executar Varredura de Segurança" (roda a simulação de audit).
+   - "Acionar Kill-Switch Manual" (bloqueio total).
+
+Forneça o código atualizado de `gui.py` integrado a essa nova experiência de cibersegurança.

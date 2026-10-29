@@ -100,18 +100,29 @@ class EngineTransitionTests(unittest.TestCase):
             self.assertEqual(main(["--gui"]), 0)
         launch.assert_called_once_with()
 
-    def test_simulation_command_completes_loopback_execution(self) -> None:
+    def test_simulation_command_completes_local_security_audit(self) -> None:
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             result = main(["--run-sim"])
 
         rendered = output.getvalue()
         self.assertEqual(result, 0)
-        self.assertIn("Destino: 127.0.0.1", rendered)
+        self.assertIn("sem sondagem de rede", rendered)
         self.assertIn("scope.validated", rendered)
         self.assertIn("run.started", rendered)
-        self.assertIn("metric.sample", rendered)
+        self.assertIn("security.audit.completed", rendered)
         self.assertIn("Estado final: COMPLETED", rendered)
+
+    def test_unauthorized_port_scenario_reports_blocked_exit_status(self) -> None:
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = main(
+                ["--run-sim", "--scenario", "unauthorized-port"]
+            )
+
+        self.assertEqual(result, 2)
+        self.assertIn("security.port.exposed", output.getvalue())
+        self.assertIn("Estado final: BLOCKED", output.getvalue())
 
 
 if __name__ == "__main__":

@@ -31,6 +31,12 @@ from core.resilience import (
     TelemetryUnavailable,
 )
 from core.scope_validator import ScopeLimits, ScopeValidationError, ScopeValidator, ValidatedScope
+from core.security_audit import (
+    IntegrityEvidence,
+    PortEvidence,
+    SecurityAudit,
+    SecurityFinding,
+)
 from core.state_machine import (
     InvalidStateTransitionError,
     InvalidTransitionError,
@@ -76,6 +82,7 @@ __all__ = [
     "GattCharacteristic",
     "GattService",
     "InventoryAuthorization",
+    "IntegrityEvidence",
     "InventoryImportError",
     "LocalAdapterUnavailableError",
     "LocalDemoServer",
@@ -83,6 +90,7 @@ __all__ = [
     "ModuleRegistry",
     "OperationalLimitEnforcer",
     "OperationalLimitExceeded",
+    "PortEvidence",
     "ApprovalRepository",
     "EventRepository",
     "FindingRepository",
@@ -93,6 +101,8 @@ __all__ = [
     "RunStateMachine",
     "ReportGenerationError",
     "SafetyCircuitBreaker",
+    "SecurityAudit",
+    "SecurityFinding",
     "ScopeLimits",
     "ScopeValidationError",
     "ScopeValidator",
