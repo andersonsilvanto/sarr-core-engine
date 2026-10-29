@@ -220,10 +220,12 @@ class EventRepository:
             "finding.created",
             "security.port.exposed",
             "integrity.hash.mismatch",
+            "integrity.baseline.missing",
             "integrity.audit.failed",
             "security.permission.audit_failed",
             "security.permission.excessive",
             "auth.brute_force.detected",
+            "network.correlation.vulnerability_detected",
         )
         placeholders = ",".join("?" for _ in critical_names)
         with self._database.transaction() as connection:

@@ -14,6 +14,9 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(empty.run_sim)
         self.assertTrue(build_parser().parse_args(["--run-sim"]).run_sim)
         self.assertTrue(build_parser().parse_args(["--gui"]).gui)
+        self.assertTrue(
+            build_parser().parse_args(["--bootstrap-scanners"]).bootstrap_scanners
+        )
         self.assertTrue(build_parser().parse_args(["--status"]).status)
         metadata = build_parser().parse_args(["--export-metadata"])
         self.assertTrue(metadata.export_metadata)

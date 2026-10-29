@@ -1,0 +1,26 @@
+REGRAS OBRIGATÓRIAS:
+1. Mantenha os 98+ testes unitários passando a 100% e a arquitetura Fail-Closed intacta.
+2. Mantenha a portabilidade via pathlib e execução isolada em localhost/loopback.
+
+---
+
+CONTEXTO E OBJETIVO:
+Queremos implementar a **Orquestração Unificada e Bootstrap de Ferramentas (Nmap + Tshark/Wireshark)** no **SARR-Core Engine**, unindo a instalação assistida com a correlação cruzada de telemetria de rede.
+
+Sua missão nesta etapa é:
+
+1. **Módulo de Bootstrap de Ferramentas (`scanner_bootstrap.py`):**
+   - Criar verificação avançada de binários no Windows em diretórios padrão e no PATH.
+   - Adicionar rotina de verificação/instalação assistida ou download seguro das dependências via CLI/GUI (`--bootstrap-scanners`).
+
+2. **Pipeline de Correlação de Rede (Nmap + Tshark + Core):**
+   - Implementar a correlação de dados: o Nmap identifica portas/serviços ativos e o Tshark analisa o tráfego capturado nessas portas.
+   - Quando o Tshark detectar tráfego inseguro/não criptografado em portas apontadas pelo Nmap, gerar um Finding correlacionado com severidade CRITICAL (`network.correlation.vulnerability_detected`) e associar à técnica MITRE ATT&CK `T1040`.
+
+3. **Atualizar a Interface Gráfica (`gui.py`):**
+   - Adicionar indicador de status unificado para a pipeline "Nmap + Tshark Engine".
+   - Adicionar botão de "Verificar / Instalar Scanners Externeos" no painel SOC.
+   - Exibir na tabela de achados o resultado correlacionado com o fluxo de remediação do Blue Team.
+
+4. **Garantir Testes Automatizados:**
+   - Criar testes unitários para a lógica de correlação de dados e garantir fallback seguro caso os scanners estejam desativados.

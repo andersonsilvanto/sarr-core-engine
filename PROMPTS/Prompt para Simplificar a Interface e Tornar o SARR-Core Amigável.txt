@@ -1,0 +1,22 @@
+REGRAS OBRIGATÓRIAS:
+1. Mantenha todos os testes unitários passando a 100% e a arquitetura Fail-Closed intacta.
+2. Mantenha a portabilidade via pathlib.
+
+---
+
+CONTEXTO E OBJETIVO:
+Queremos simplificar drasticamente a experiência do utilizador (UX) no painel SOC do **SARR-Core Engine** (`gui.py`), transformando achados técnicos complexos em uma linguagem simples, visual e intuitiva para operadores de qualquer nível técnico.
+
+Sua missão nesta etapa é:
+
+1. **Indicador Visual de Postura (Traffic Light):**
+   - Destacar no topo da GUI o status geral de segurança de forma clara com cores intuitivas (Verde para Seguro, Amarelo para Atenção, Vermelho para Crítico).
+
+2. **Tradução de Achados (Plain English / Português Claro):**
+   - Na tabela de achados (Findings), traduzir os títulos e descrições técnicas para uma linguagem direta orientada a ação (ex: explicar o risco de forma simples e o impacto prático).
+
+3. **Ações Rápidas de Correção (One-Click Remediation):**
+   - Adicionar botões interativos na área de detalhes do achado que facilitem a remediação visual (ex: botão para "Copiar Comando de Correção" ou "Aplicar Mitigação Segura").
+
+4. **Garantir Testes Unitários:**
+   - Assegurar que os testes continuem verdes e que a lógica de relatórios JSON conserve os dados técnicos completos para auditoria enquanto a interface exibe a versão simplificada.

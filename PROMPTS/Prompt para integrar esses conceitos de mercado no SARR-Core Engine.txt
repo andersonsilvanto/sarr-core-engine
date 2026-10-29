@@ -1,0 +1,25 @@
+REGRAS OBRIGATÓRIAS:
+1. Mantenha os testes unitários passando 100% e a portabilidade via pathlib.
+2. Preserve a arquitetura Fail-Closed e a interface GUI Tkinter desacoplada.
+
+---
+
+CONTEXTO E OBJETIVO:
+Queremos evoluir o **SARR-Core Engine** incorporando conceitos consolidados de ferramentas de mercado (Atomic Red Team, Wazuh e Lynis).
+
+Sua missão nesta etapa é:
+
+1. **Implementar Módulo de FIM (File Integrity Monitoring - Estilo Wazuh):**
+   - Criar uma verificação de integridade de hashes SHA-256 para arquivos do diretório `config/` e `schemas/`, gerando um achado (Finding) de severidade CRITICAL caso algum hash não bata com a baseline.
+
+2. **Adicionar Táticas do MITRE ATT&CK (Estilo Atomic Red Team):**
+   - Implementar pelo menos 3 simulações atômicas mapeadas:
+     - `T1083` (File and Directory Discovery): Varredura de arquivos locais sensíveis.
+     - `T1046` (Network Service Discovery): Verificação de portas e listeners locais.
+     - `T1222` (File and Directory Permissions Modification): Auditoria de permissões e ACLs.
+
+3. **Implementar "Hardening Score" e Remediação Automática (Estilo Lynis/Wazuh):**
+   - Exibir no topo do Painel SOC em `gui.py` uma nota de postura defensiva (ex: `Hardening Score: 85/100`).
+   - Adicionar ao botão de remediação a capacidade do Blue Team de "Restaurar Baselines/Fix" para resolver vulnerabilidades automaticamente.
+
+Atualize a lógica da simulação, os componentes da GUI e adicione testes unitários para validar os novos recursos.

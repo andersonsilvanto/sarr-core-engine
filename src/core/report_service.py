@@ -1,6 +1,7 @@
 """Structured, sanitized audit reports for completed or interrupted runs."""
 
 import csv
+import html
 import json
 import math
 import os
@@ -41,6 +42,18 @@ def _isoformat(value: object) -> str | None:
     if not callable(isoformat):
         raise TypeError("Report timestamps must be datetime values.")
     return isoformat().replace("+00:00", "Z")
+
+
+def _markdown_text(value: object) -> str:
+    safe = html.escape(str(value), quote=False)
+    for character in "\\`*_{}[]()#+-.!|>":
+        safe = safe.replace(character, f"\\{character}")
+    return safe.replace("\r", " ").replace("\n", " ")
+
+
+def _markdown_code(value: object) -> str:
+    safe = html.escape(str(value), quote=False).replace("`", "&#96;")
+    return safe.replace("\r", " ").replace("\n", " ")
 
 
 def _aggregate_metrics(
@@ -359,6 +372,84 @@ class AuditReportService:
             + "\n"
         ).encode("utf-8")
         return cls._atomic_write(destination, content)
+
+    @classmethod
+    def export_markdown(
+        cls, report: Mapping[str, object], destination: str | Path
+    ) -> Path:
+        validated = cls.validate_report(report)
+        system = validated["system"]
+        execution = validated["execution"]
+        scope = validated["scope"]
+        kill_switch = validated["kill_switch"]
+        if not (
+            isinstance(system, dict)
+            and isinstance(execution, dict)
+            and isinstance(scope, dict)
+            and isinstance(kill_switch, dict)
+        ):
+            raise ReportGenerationError("Report sections are invalid for Markdown export.")
+
+        lines = [
+            "# Relatório Executivo de Auditoria",
+            "",
+            f"- Sistema: {_markdown_text(system['name'])} "
+            f"{_markdown_text(system['version'])}",
+            f"- Execução: `{_markdown_code(system['run_id'])}`",
+            f"- Relatório: `{_markdown_code(validated['report_id'])}`",
+            f"- Operador: {_markdown_text(validated['operator'])}",
+            f"- Ambiente: {_markdown_text(scope['environment'])}",
+            f"- Estado: **{_markdown_text(execution['state'])}**",
+            f"- Kill-switch: **{'acionado' if kill_switch['triggered'] else 'inativo'}**",
+            f"- Motivo de parada: `{_markdown_code(validated['stop_reason'])}`",
+            "",
+            "## Achados",
+            "",
+        ]
+        findings = validated["findings"]
+        if not findings:
+            lines.append("Nenhum finding registrado.")
+        else:
+            for index, finding in enumerate(findings, start=1):
+                if not isinstance(finding, dict):
+                    raise ReportGenerationError("Finding entries must be objects.")
+                evidence = finding.get("evidence", {})
+                if not isinstance(evidence, dict):
+                    raise ReportGenerationError("Finding evidence must be an object.")
+                rendered_evidence = json.dumps(
+                    evidence,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    allow_nan=False,
+                )
+                lines.extend(
+                    (
+                        f"### {index}. [{_markdown_code(finding.get('severity', 'unspecified'))}] "
+                        f"`{_markdown_code(finding.get('title', ''))}`",
+                        "",
+                        _markdown_text(finding.get("description", "")),
+                        "",
+                        f"- MITRE ATT&CK: `{_markdown_code(evidence.get('mitre_id', 'N/A'))}`",
+                        "- Evidência: `" + _markdown_code(rendered_evidence) + "`",
+                        "",
+                    )
+                )
+
+        lines.extend(("# Recomendações", ""))
+        recommendations = validated["recommendations"]
+        if not isinstance(recommendations, list):
+            raise ReportGenerationError("Report recommendations must be an array.")
+        lines.extend(f"- {_markdown_text(item)}" for item in recommendations)
+        lines.extend(("", "## Limitações", ""))
+        limitations = validated["limitations"]
+        if not isinstance(limitations, list):
+            raise ReportGenerationError("Report limitations must be an array.")
+        lines.extend(f"- {_markdown_text(item)}" for item in limitations)
+        lines.append("")
+        return cls._atomic_write(
+            destination,
+            "\n".join(lines).encode("utf-8"),
+        )
 
     @classmethod
     def export_csv(

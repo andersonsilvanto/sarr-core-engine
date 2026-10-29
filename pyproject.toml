@@ -15,3 +15,4 @@ where = ["src"]
 
 [tool.setuptools.data-files]
 "schemas" = ["schemas/scope.schema.json", "schemas/dashboard.schema.json"]
+"config" = ["config/dashboard.schema.json", "config/canary_credentials.json"]

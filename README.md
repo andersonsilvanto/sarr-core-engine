@@ -107,6 +107,13 @@ virtual:
 .venv\Scripts\python.exe -m sarr_core --status
 .venv\Scripts\python.exe -m sarr_core --run-sim
 .venv\Scripts\python.exe -m sarr_core --run-sim --scenario unauthorized-port
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario porta_desprotegida
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario permissao_frouxa
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario hash_adulterado
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario obfuscation
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario persistence
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario canary-access
+.venv\Scripts\python.exe -m sarr_core --run-sim --scenario ghost-port
 .venv\Scripts\python.exe -m sarr_core.cli --gui
 ```
 
@@ -119,16 +126,24 @@ No Linux/macOS, o equivalente é
 Linux; no macOS usa `~/Library/Application Support`.
 
 `--gui` abre o painel SOC Tk local: postura (`SECURE`, `VULNERABLE` ou
-`ATTACK / KILL-SWITCH`), tabela de findings, console SIEM com severidade e
-controles para iniciar a auditoria ou acionar o kill-switch manual. A interface
-importa a fachada `sarr_core.simulation`; não manipula diretamente a máquina de
-estados ou os repositórios do motor.
+`ATTACK / KILL-SWITCH`), Hardening Score (0–100), tabela de findings, console
+SIEM com severidade e controles para iniciar a auditoria, acionar o kill-switch
+manual ou restaurar baselines conhecidas. A interface importa a fachada
+`sarr_core.simulation`; não manipula diretamente a máquina de estados ou os
+repositórios do motor. Após uma auditoria, o painel permite exportar um
+relatório executivo sanitizado em JSON ou Markdown. A tabela apresenta nomes e
+impactos em linguagem simples, com indicador verde para postura segura, amarelo
+para atenção e vermelho para bloqueio crítico. O detalhe do finding mantém a
+referência técnica e as evidências; a ação rápida copia a orientação sem executar
+comandos. A mitigação automática só é habilitada para restaurar
+`config/dashboard.schema.json` de sua baseline verificada.
 
 Para exportar o JSON da última execução persistida ou o schema do dashboard:
 
 ```bat
 .venv\Scripts\python.exe -m sarr_core.cli --export-metadata
 .venv\Scripts\python.exe -m sarr_core.cli --export-dashboard
+.venv\Scripts\python.exe -m sarr_core.cli --bootstrap-scanners
 ```
 
 Os metadados são exportados somente se houver uma execução no banco local, em
@@ -144,15 +159,68 @@ continuam centralizadas em `CoreOrchestrator`, que é o fluxo recomendado para
 execução real ou simulada.
 
 `--status` não inicia uma execução. `--run-sim` cria e valida um escopo
-temporário restrito a `127.0.0.1`, depois processa apenas inventário explicitamente
-local, hashes dos schemas do projeto e cenários sintéticos. Não abre sockets,
-sonda portas reais, envia requisições, nem tenta autenticação. Os cenários
+temporário restrito a `127.0.0.1`, depois processa inventário local, hashes dos
+schemas do projeto e cenários sintéticos. O fluxo padrão não abre sockets nem
+envia requisições; se Nmap estiver instalado, é feita uma verificação TCP
+limitada ao próprio loopback, sem tentativa de autenticação. Os cenários
 disponíveis são `normal`, `unauthorized-port`, `integrity-mismatch`,
-`brute-force` e `manual-interruption`; os cenários de risco disparam o
-kill-switch e terminam em `BLOCKED`. Os hashes de referência dos schemas são
+`brute-force`, `manual-interruption`, `porta_desprotegida`,
+`permissao_frouxa`, `hash_adulterado`, `obfuscation`, `persistence`,
+`canary-access` e `ghost-port`; os cenários de risco disparam o kill-switch e terminam em
+`BLOCKED`. Ofuscação, comandos subprocess simulados e mecanismos de persistência
+são analisados somente como fixtures estáticas; nenhum payload é decodificado
+ou executado, e nenhum processo, tarefa agendada ou chave de inicialização é
+consultado.
+Findings exportados incluem vetor de ataque, remediação, referência MITRE
+ATT&CK e ação de bloqueio; as descrições de ataque são explicativas e não
+executam exploração. Os hashes de referência dos schemas são
 fixados no código e precisam ser revisados intencionalmente quando esses arquivos
 forem atualizados. A verificação de permissões POSIX é somente leitura; no
 Windows, a auditoria registra explicitamente que ACLs não foram verificadas.
+O FIM também verifica arquivos conhecidos de `config/` e `schemas/`; arquivos
+adicionais sem baseline aprovada são críticos e bloqueiam a execução. As
+simulações atômicas T1083, T1046 e T1222 limitam-se à enumeração local de
+arquivos e a inventários fornecidos/sintéticos, sem varredura de rede ou
+alteração de permissões. “Restaurar Baselines / Fix” pode restaurar somente
+`config/dashboard.schema.json`, depois de verificar `schemas/dashboard.schema.json`
+contra seu hash aprovado; em seguida, executa uma nova auditoria. Outros
+findings requerem remediação revisada pelo operador.
+
+`config/canary_credentials.json` contém exclusivamente um marcador fictício e
+faz parte das baselines FIM. Uma adulteração detectada ou um sinal explícito de
+acesso sintético gera `deception.canary.triggered` CRITICAL e aciona o
+kill-switch. O aplicativo não instala hooks nem monitora leituras externas do
+sistema operacional; detecção geral de acesso exige telemetria autorizada do
+host, não fornecida por esta simulação.
+
+O Nmap, se encontrado, só é chamado com destino fixo `127.0.0.1`, timeout e
+saída XML limitada. Portas encontradas são inventário informativo; não se
+infere vulnerabilidade sem validação do serviço. O Tshark é verificado no
+ambiente e sua API aceita apenas análise offline de arquivos `.pcap`/`.pcapng`
+no diretório do projeto por meio de `--tshark-capture`; captura ao vivo é
+desativada. A análise registra apenas contagem de frames e hash de metadados,
+nunca conteúdo de pacotes. Para usar essa opção, forneça um arquivo autorizado
+existente dentro do projeto. Se qualquer ferramenta estiver ausente ou falhar, o
+CLI/GUI registra aviso e mantém o fallback de simulação local. O cenário
+`ghost-port` é exclusivamente sintético: não abre
+porta, envia pacotes ou captura requisições reais; registra somente um hash
+fixo da assinatura de fixture.
+
+`--bootstrap-scanners` e o botão correspondente no SOC verificam o PATH e os
+diretórios padrão do Windows e exibem instruções `winget` para instalação
+assistida. O aplicativo não baixa nem executa instaladores; revise o editor do
+pacote e confirme a instalação manualmente. A correlação Nmap + Tshark só ocorre
+quando ambos estão disponíveis e o operador fornece uma captura offline
+autorizada dentro do projeto. Frames com protocolos em texto claro observados
+em pacotes loopback (`127.0.0.1`/`::1`) para portas TCP descobertas pelo Nmap
+geram `network.correlation.vulnerability_detected` (CRITICAL, T1040) e acionam
+o kill-switch. A correlação não exporta payloads e não trata tráfego TLS como
+texto claro.
+
+A auto-cura mantém em memória cópias apenas de arquivos com SHA-256 igual às
+baselines embutidas na versão instalada. Uma alteração posterior à captura da
+baseline é substituída atomicamente e verificada; symlinks, arquivos sem
+baseline ou falhas de escrita continuam fail-closed e não são reparados.
 
 ## Diretório de dados
 
@@ -206,7 +274,7 @@ incluindo SHA-256 do arquivo de escopo, operador, módulos registrados como
 executados, horários, agregados métricos, achados, eventos do kill-switch,
 motivo de parada, limitações e recomendações defensivas. Dados sensíveis são
 sanitizados antes da serialização. Os formatos JSON e CSV são suportados sem
-dependências adicionais:
+dependências adicionais; o painel local também exporta Markdown:
 
 ```python
 from core import AuditReportService
@@ -214,6 +282,7 @@ from core import AuditReportService
 report = AuditReportService(engine).build_report(run.run_id, operator="analyst")
 AuditReportService.export_json(report, "reports/run.json")
 AuditReportService.export_csv(report, "reports/run.csv")
+AuditReportService.export_markdown(report, "reports/run.md")
 ```
 
 Para registrar um módulo executado no relatório, use

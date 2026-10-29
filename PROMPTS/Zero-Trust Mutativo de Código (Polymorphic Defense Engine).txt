@@ -1,0 +1,22 @@
+REGRAS OBRIGATÓRIAS:
+1. Mantenha os 98+ testes unitários passando e a arquitetura Fail-Closed intacta.
+2. Mantenha a portabilidade cross-platform via pathlib.
+
+---
+
+CONTEXTO E OBJETIVO:
+Queremos implementar recursos avançados de arquitetura defensiva nativa no **SARR-Core Engine**: Auto-Cura de Arquivos (Self-Healing), Tokens Mutativos e Portas Fantasma (Ghost-Patching).
+
+Sua missão nesta etapa é:
+
+1. **Implementar Módulo de Auto-Cura (Self-Healing FIM):**
+   - Ao detectar alteração em arquivos de `config/` ou `schemas/`, o motor deve isolar a ameaça e restaurar o conteúdo a partir de uma cópia em memória (Shadow Baseline), gerando o evento `security.state.healed`.
+
+2. **Implementar Portas/Iscas Fantasma (Ghost-Patching):**
+   - Criar um simulação de endpoint fantasma no motor. Se uma varredura tentar explorar essa porta não autorizada, capturar a assinatura da requisição e disparar evento `deception.ghost_port.engaged` ativando o Kill-Switch.
+
+3. **Atualizar a GUI (`gui.py`):**
+   - Exibir na tabela do SOC o status da auto-cura (ex: `STATUS: RESTORED / HEALED`).
+   - Adicionar o indicador de integridade dinâmica no painel de posture.
+
+Atualize o motor em `simulation.py`, a interface em `gui.py` e crie testes unitários para validar os fluxos de auto-cura e deception.

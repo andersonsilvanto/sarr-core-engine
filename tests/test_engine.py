@@ -9,7 +9,7 @@ from core import (
     RunState,
     RunStateMachine,
 )
-from sarr_core.cli import main
+from sarr_core.cli import build_parser, main
 from sarr_core.core.engine import Engine, EngineState
 from sarr_core.core.run_context import RunContext as PublicRunContext
 
@@ -107,7 +107,8 @@ class EngineTransitionTests(unittest.TestCase):
 
         rendered = output.getvalue()
         self.assertEqual(result, 0)
-        self.assertIn("sem sondagem de rede", rendered)
+        self.assertIn("Nmap limitado a 127.0.0.1", rendered)
+        self.assertIn("Tshark apenas em captura offline autorizada", rendered)
         self.assertIn("scope.validated", rendered)
         self.assertIn("run.started", rendered)
         self.assertIn("security.audit.completed", rendered)
@@ -123,6 +124,19 @@ class EngineTransitionTests(unittest.TestCase):
         self.assertEqual(result, 2)
         self.assertIn("security.port.exposed", output.getvalue())
         self.assertIn("Estado final: BLOCKED", output.getvalue())
+
+    def test_portuguese_security_scenarios_are_available_in_cli(self) -> None:
+        parser = build_parser()
+        for scenario in (
+            "porta_desprotegida",
+            "permissao_frouxa",
+            "hash_adulterado",
+        ):
+            with self.subTest(scenario=scenario):
+                arguments = parser.parse_args(
+                    ["--run-sim", "--scenario", scenario]
+                )
+                self.assertEqual(arguments.scenario, scenario)
 
 
 if __name__ == "__main__":

@@ -32,7 +32,10 @@ from core.resilience import (
 )
 from core.scope_validator import ScopeLimits, ScopeValidationError, ScopeValidator, ValidatedScope
 from core.security_audit import (
+    GhostPortAttempt,
     IntegrityEvidence,
+    PersistenceEvidence,
+    PermissionEvidence,
     PortEvidence,
     SecurityAudit,
     SecurityFinding,
@@ -83,6 +86,7 @@ __all__ = [
     "GattService",
     "InventoryAuthorization",
     "IntegrityEvidence",
+    "GhostPortAttempt",
     "InventoryImportError",
     "LocalAdapterUnavailableError",
     "LocalDemoServer",
@@ -90,6 +94,8 @@ __all__ = [
     "ModuleRegistry",
     "OperationalLimitEnforcer",
     "OperationalLimitExceeded",
+    "PersistenceEvidence",
+    "PermissionEvidence",
     "PortEvidence",
     "ApprovalRepository",
     "EventRepository",

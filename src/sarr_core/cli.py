@@ -20,6 +20,7 @@ from core import (
     resolve_data_directory,
 )
 from sarr_core.metadata import MetadataExportError, MetadataManager
+from sarr_core.scanner_bootstrap import ScannerBootstrap
 from sarr_core.simulation import (
     LocalSimulationSession,
     SecurityScenario,
@@ -33,17 +34,38 @@ def _print_status() -> None:
     print("Kill-switch: inativo")
 
 
-def _run_simulation(scenario: SecurityScenario) -> int:
-    session = LocalSimulationSession(scenario)
+def _run_simulation(
+    scenario: SecurityScenario,
+    *,
+    tshark_capture: Path | None = None,
+) -> int:
+    session = LocalSimulationSession(scenario, tshark_capture=tshark_capture)
     try:
         snapshot = session.run()
         print("SARR-Core Engine - auditoria defensiva local")
         print(f"run_id: {snapshot.run_id}")
         print(f"Dados: {session.data_directory}")
         print(f"Cenário: {scenario.value}")
-        print("Evidências: inventário local fornecido e fixtures sintéticas; sem sondagem de rede.")
+        print(f"Hardening Score: {snapshot.hardening_score}/100")
+        print(
+            "Evidências: fixtures locais/sintéticas; Nmap limitado a 127.0.0.1 "
+            "quando disponível; Tshark apenas em captura offline autorizada."
+        )
+        for tool, status in snapshot.scanner_status:
+            print(f"Ferramenta externa — {tool}: {status}")
         for finding in snapshot.findings:
-            print(f"Achado [{finding.severity}]: {finding.event_name} — {finding.summary}")
+            if finding.event_name in {
+                "external.scanner.unavailable",
+                "external.scanner.failed",
+            }:
+                print(f"Aviso: {finding.summary}")
+            print(
+                f"Achado [{finding.severity}] {finding.event_name} "
+                f"(MITRE {finding.mitre_id or 'N/A'}): {finding.summary}"
+            )
+            print(f"  Vetor Red Team: {finding.vetor_ataque}")
+            print(f"  Remediação Blue Team: {finding.remediacao}")
+            print(f"  Bloqueio recomendado: {finding.acao_bloqueio}")
         for timestamp, event_name in session.event_log():
             print(f"{timestamp} {event_name}")
         print(f"Estado final: {snapshot.state.value}")
@@ -105,6 +127,24 @@ def _export_dashboard() -> Path:
     return output_path
 
 
+def _bootstrap_scanners() -> None:
+    bootstrap = ScannerBootstrap()
+    installations = bootstrap.inspect()
+    print("SARR-Core — verificação local de scanners")
+    for installation in installations:
+        status = (
+            str(installation.executable)
+            if installation.executable is not None
+            else "não encontrado"
+        )
+        print(f"{installation.name}: {status}")
+    guidance = bootstrap.installation_guidance(installations)
+    if guidance:
+        print("\n".join(guidance))
+    else:
+        print("Nmap e Tshark estão disponíveis; Nmap será limitado ao loopback.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m sarr_core",
@@ -137,23 +177,47 @@ def build_parser() -> argparse.ArgumentParser:
         help="exporta o schema JSON do dashboard para config/",
     )
     parser.add_argument(
+        "--bootstrap-scanners",
+        action="store_true",
+        help=(
+            "verifica Nmap/Tshark locais e exibe instruções opcionais; "
+            "não baixa nem executa instaladores"
+        ),
+    )
+    parser.add_argument(
         "--scenario",
         choices=tuple(scenario.value for scenario in SecurityScenario),
         default=SecurityScenario.NORMAL.value,
         help="cenário sintético para --run-sim",
     )
+    parser.add_argument(
+        "--tshark-capture",
+        type=Path,
+        help=(
+            "analisa offline um .pcap/.pcapng dentro da pasta do projeto; "
+            "captura ao vivo não é suportada"
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    arguments = build_parser().parse_args(argv)
+    parser = build_parser()
+    arguments = parser.parse_args(argv)
+    if arguments.tshark_capture is not None and not arguments.run_sim:
+        parser.error("--tshark-capture requires --run-sim")
     if arguments.status:
         _print_status()
     try:
         if arguments.run_sim:
-            return_code = _run_simulation(SecurityScenario(arguments.scenario))
+            return_code = _run_simulation(
+                SecurityScenario(arguments.scenario),
+                tshark_capture=arguments.tshark_capture,
+            )
         else:
             return_code = 0
+        if arguments.bootstrap_scanners:
+            _bootstrap_scanners()
         if arguments.export_metadata:
             _export_metadata()
         if arguments.export_dashboard:
@@ -168,6 +232,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             or arguments.gui
             or arguments.export_metadata
             or arguments.export_dashboard
+            or arguments.bootstrap_scanners
         ):
             _print_status()
     except (

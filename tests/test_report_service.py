@@ -82,7 +82,7 @@ class AuditReportServiceTests(unittest.TestCase):
             self.run.run_id,
             severity="low",
             title="Observed condition",
-            description="token=report-secret",
+            description="token=report-secret <script>alert('x')</script>",
             details={
                 "evidence": "Authorization: Bearer report-secret",
                 "api_key": "report-secret",
@@ -131,6 +131,14 @@ class AuditReportServiceTests(unittest.TestCase):
         rendered_report = json.dumps(report, ensure_ascii=False)
         self.assertNotIn("report-secret", rendered_report)
         self.assertIn("[REDACTED]", rendered_report)
+        markdown_path = AuditReportService.export_markdown(
+            report,
+            self.root / "reports" / "audit.md",
+        )
+        markdown_report = markdown_path.read_text(encoding="utf-8")
+        self.assertIn("# Relatório Executivo de Auditoria", markdown_report)
+        self.assertNotIn("<script>", markdown_report)
+        self.assertIn("&lt;script&gt;", markdown_report)
 
     def test_json_and_csv_exports_preserve_report_fields(self) -> None:
         self.orchestrator.kill_switch.trigger(
