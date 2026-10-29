@@ -1,0 +1,26 @@
+REGRAS OBRIGATÓRIAS PARA ESTA TAREFA:
+1. Verifique o status do repositório Git local antes de realizar qualquer ação.
+2. Certifique-se de que arquivos temporários, caches do Python (__pycache__, .pytest_cache) ou ambientes virtuais (.venv) estejam estritamente ignorados pelo .gitignore e NÃO sejam commitados.
+3. Garanta que a suíte de testes unitários seja executada no ambiente virtual (.venv\Scripts\python.exe -m unittest) e passe 100% antes de realizar o commit.
+
+---
+
+CONTEXTO E OBJETIVO:
+Finalizamos a implementação e validação das etapas do SARR-Core Engine. Agora precisamos versionar e sincronizar todas as alterações locais com o repositório remoto no GitHub (`andersonsilvanto/sarr-core-engine`).
+
+Sua missão nesta etapa é:
+
+1. **Validação Pré-Commit:**
+   - Executar os testes unitários para confirmar que nenhuma alteração quebrou o motor ou a CLI.
+   - Verificar o arquivo `.gitignore` para garantir que `.venv/`, `__pycache__/`, `.pytest_cache/` e bancos de dados SQLite locais de teste estejam excluídos.
+
+2. **Adição e Commit Estruturado:**
+   - Adicionar todos os novos arquivos e modificações (`git add .`).
+   - Criar um commit com mensagem padronizada no formato Conventional Commits descrevendo os entregáveis (ex: `feat(core): implement state machine, metadata export, and CLI integration`).
+
+3. **Sincronização com o GitHub:**
+   - Realizar o push das alterações para a branch principal (`main`) no repositório remoto:
+     `git push origin main`
+
+4. **Relatório Final:**
+   - Exibir o log do commit realizado (`git log -1`) e o status final do repositório (`git status`).

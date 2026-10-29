@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "authorization": {
+    "reference": "SYNTHETIC-LAB-WIFI-001",
+    "approved_by": "Synthetic lab operator",
+    "valid_from_utc": "2026-10-29T00:00:00Z",
+    "valid_until_utc": "2026-10-30T00:00:00Z",
+    "allowed_targets": [
+      "02:00:00:00:00:01",
+      "02:00:00:00:00:02"
+    ],
+    "activity": "wifi_passive_inventory"
+  },
+  "devices": [
+    {
+      "bssid": "02:00:00:00:00:01",
+      "ssid": "SYNTHETIC-LAB-AP-1",
+      "channel": 6,
+      "rssi_dbm": -42,
+      "security": "wpa2",
+      "observed_at_utc": "2026-10-29T12:00:00Z"
+    },
+    {
+      "bssid": "02:00:00:00:00:02",
+      "ssid": "SYNTHETIC-LAB-AP-2",
+      "channel": 36,
+      "rssi_dbm": -67,
+      "security": "wpa3",
+      "observed_at_utc": "2026-10-29T12:00:01Z"
+    }
+  ]
+}

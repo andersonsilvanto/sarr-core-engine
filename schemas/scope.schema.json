@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sarr-core-engine.local/schemas/scope.schema.json",
+  "title": "SARR-Core execution scope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "engagement_id",
+    "environment",
+    "mode",
+    "valid_from_utc",
+    "valid_until_utc",
+    "allowed_targets",
+    "allowed_modules",
+    "limits"
+  ],
+  "properties": {
+    "engagement_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "environment": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "mode": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "valid_from_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "allowed_targets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,252}$"
+      }
+    },
+    "allowed_modules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_duration_seconds",
+        "max_rate_per_second",
+        "max_concurrency",
+        "max_volume_bytes",
+        "measurement_window_seconds"
+      ],
+      "properties": {
+        "max_duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_rate_per_second": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_volume_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "measurement_window_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

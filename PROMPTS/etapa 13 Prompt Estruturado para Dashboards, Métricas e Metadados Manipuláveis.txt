@@ -1,0 +1,38 @@
+REGRAS OBRIGATÓRIAS PARA ESTA TAREFA:
+1. Siga os princípios de resiliência e segurança por padrão (fail-closed) do SARR-Core Engine.
+2. Mantenha o código 100% Python puro (usando bibliotecas nativas como `json`, `sqlite3` e estruturas modulares) para rodar isoladamente no ambiente virtual (.venv).
+3. Garanta que todos os metadados de dashboards e execuções sejam exportáveis, importáveis e manipuláveis via código ou terminal.
+
+---
+
+CONTEXTO E OBJETIVO:
+Precisamos estruturar o sistema de gestão de Dados (métricas e eventos de telemetria) e Metadados (configurações de execução, especificações de dashboards e regras de alertas) no SARR-Core Engine.
+
+Sua missão nesta etapa é implementar:
+
+1. **Estrutura de Metadados de Execução e Sessão (`src/sarr_core/metadata/`):**
+   - Criar uma classe `MetadataManager` capaz de registrar e exportar os metadados de cada execução em formato JSON estruturado (ex: `execution_id`, `timestamp_start`, `scope_hash`, `active_rules`, `system_environment`).
+   - Permitir salvar e carregar arquivos de contexto de metadados de forma portável.
+
+2. **Gerenciador de Metadados de Dashboards (`src/sarr_core/dashboards/`):**
+   - Criar o modelo e gerador de esquemas para Dashboards exportáveis em formato JSON (inspirado no padrão do Grafana).
+   - Implementar funções para:
+     - `export_dashboard_schema()`: Exportar a estrutura de visualização (painéis, métricas vinculadas, limites de aviso/alerta e intervalos de atualização) para um arquivo JSON.
+     - `import_dashboard_schema(path)`: Carregar e validar um esquema de dashboard externo.
+     - `get_active_metrics_payload()`: Consolidar métricas brutas (latência, taxa de erro, rtt) com seus respectivos metadados de contexto para exibição.
+
+3. **Inclusão na CLI de Teste (`src/sarr_core/cli.py`):**
+   - Adicionar subcomandos ou flags para manipular os metadados diretamente no terminal do Windows:
+     - `python -m sarr_core.cli --export-metadata` (Gera o JSON de metadados da sessão).
+     - `python -m sarr_core.cli --export-dashboard` (Exporta o modelo do dashboard configurado).
+
+4. **Testes Unitários (`tests/test_metadata.py`):**
+   - Criar testes que garantam a serialização, deserialização e integridade dos arquivos JSON de metadados e dashboards.
+
+---
+
+ENTREGÁVEIS ESPERADOS:
+- Módulos em `src/sarr_core/metadata/` e `src/sarr_core/dashboards/`.
+- Modelo/Template JSON base de dashboard gerado na pasta `config/` ou `schemas/`.
+- Atualização da CLI para exportar/manipular esses arquivos no terminal.
+- Testes unitários passando no interpretador `.venv\Scripts\python.exe`.

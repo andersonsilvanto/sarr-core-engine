@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 3 do SARR-Core Engine:
+1. Configure a persistência local utilizando SQLite (database.py e repositories.py) para armazenar execuções, eventos, métricas, achados e aprovações.
+2. Implemente migrações simples e transações seguras.
+3. Integre a trilha de auditoria em formato estruturado (JSON Lines), garantindo o registro de eventos críticos (run.started, scope.validated, metric.sample, safety.triggered, run.stopped, finding.created) sem expor segredos ou credenciais.
+4. Adicione testes de reinício, integridade de dados e exportação de logs.

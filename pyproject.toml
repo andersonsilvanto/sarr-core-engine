@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sarr-core-engine"
+version = "0.1.0"
+description = "SARR-Core Engine"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["jsonschema==4.26.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.data-files]
+"schemas" = ["schemas/scope.schema.json"]

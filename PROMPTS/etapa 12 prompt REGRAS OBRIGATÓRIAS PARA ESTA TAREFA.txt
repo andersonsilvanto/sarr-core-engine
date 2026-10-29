@@ -1,0 +1,35 @@
+REGRAS OBRIGATÓRIAS PARA ESTA TAREFA:
+1. Siga rigorosamente a arquitetura Fail-Closed e os princípios de segurança do SARR-Core Engine.
+2. Não alucine APIs nem bibliotecas externas além do necessário. Mantenha o código limpo, modular e totalmente funcional no ambiente Python local (.venv).
+3. Após criar os arquivos, implemente uma interface de linha de comando (CLI) simples e direta para que possamos testar o motor executando comandos reais no terminal do Windows.
+
+---
+
+CONTEXTO E OBJETIVO DA ETAPA 2:
+Estamos construindo o **Core Engine** e a **Máquina de Estados** do SARR-Core Engine (`sarr_core`), garantindo o fluxo seguro de execução e preparando a aplicação para o nosso teste de fogo via linha de comando (`CLI`).
+
+Sua missão nesta etapa é:
+
+1. **Implementar a Máquina de Estados (`src/sarr_core/core/engine.py`):**
+   - Definir os estados válidos do motor: `IDLE`, `VALIDATING`, `READY`, `RUNNING`, `STOPPING`, `STOPPED`, `FAILED`.
+   - Criar a classe `InvalidStateTransitionError` para capturar e rejeitar transições ilegais (ex: saltar diretamente de `IDLE` para `RUNNING` sem passar por `VALIDATING` e `READY`).
+   - Implementar o método `transition_to(new_state)` com validação estrita.
+
+2. **Implementar o Contexto de Execução (`src/sarr_core/core/run_context.py`):**
+   - Gerenciar o estado atual, carregar metadados do escopo e registrar timestamps de início e fim da execução.
+
+3. **Criar a Interface de Linha de Comando de Teste (`src/sarr_core/cli.py` ou ponto de entrada):**
+   - Criar um script CLI acessível via Python que permita testar o motor diretamente no terminal com comandos claros, por exemplo:
+     - `python -m sarr_core.cli --status`
+     - `python -m sarr_core.cli --run-sim`
+   - O comando deve exibir os logs formatados no terminal (simulando nosso painel de controle por linha de comando no Windows).
+
+4. **Atualizar os Testes Automatizados (`tests/test_engine.py`):**
+   - Adicionar testes cobrindo transições válidas e inválidas da máquina de estados.
+
+---
+
+ENTREGÁVEIS ESPERADOS:
+- Código fonte devidamente criado/atualizado em `src/sarr_core/core/` e `src/sarr_core/cli.py`.
+- Testes unitários atualizados.
+- Instruções rápidas de como rodar o comando no terminal do Windows (`.venv\Scripts\python.exe ...`) para realizarmos o nosso teste de fogo imediatamente.

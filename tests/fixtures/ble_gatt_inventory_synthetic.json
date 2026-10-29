@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "authorization": {
+    "reference": "SYNTHETIC-LAB-BLE-001",
+    "approved_by": "Synthetic lab operator",
+    "valid_from_utc": "2026-10-29T00:00:00Z",
+    "valid_until_utc": "2026-10-30T00:00:00Z",
+    "allowed_targets": [
+      "02:00:00:00:10:01"
+    ],
+    "activity": "ble_gatt_inventory_readonly"
+  },
+  "devices": [
+    {
+      "address": "02:00:00:00:10:01",
+      "name": "SYNTHETIC-LAB-SENSOR",
+      "observed_at_utc": "2026-10-29T12:10:00Z",
+      "services": [
+        {
+          "uuid": "180f",
+          "characteristics": [
+            {
+              "uuid": "2a19",
+              "properties": [
+                "read",
+                "notify"
+              ]
+            }
+          ]
+        },
+        {
+          "uuid": "12345678-1234-5678-1234-56789abcdef0",
+          "characteristics": [
+            {
+              "uuid": "12345678-1234-5678-1234-56789abcdef1",
+              "properties": [
+                "read"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

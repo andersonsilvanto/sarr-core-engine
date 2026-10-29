@@ -1,0 +1,6 @@
+Aplique as REGRAS OBRIGATÓRIAS PARA ESTA TAREFA. Implemente estritamente a Fase 0/1 do SARR-Core Engine:
+1. Verifique se o ambiente virtual (.venv) existe; caso contrário, crie-o obrigatoriamente usando `python -m venv .venv`.
+2. Oriente e configure os scripts batch em `scripts/` (`setup_windows.bat` e `run_windows.bat`) para sempre apontarem explicitamente para `.venv\Scripts\python.exe` e nunca para o executável global do sistema.
+3. Crie a estrutura base do projeto (`pyproject.toml`, `README.md`, `.gitignore`, pastas `src/sarr_core/`, `tests/`, `scripts/`, `config/`, `schemas/`).
+4. Adicione o teste unitário inicial de importação e execute-o utilizando exclusivamente o interpretador do ambiente virtual.
+Liste os arquivos criados e reporte o resultado real dos testes.
