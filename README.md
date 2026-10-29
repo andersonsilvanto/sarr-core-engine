@@ -326,3 +326,9 @@ arquivo, não uma assinatura criptográfica verificada pelo motor. Antes de
 importar inventários reais, o operador deve validar a referência contra a
 aprovação formal da organização e fornecer apenas dados coletados de forma
 autorizada e passiva.
+
+## 🔮 Visão de Futuro & Roadmap
+
+*Evolução conceitual da arquitetura de resiliência defensiva e múltiplos vetores de simulação planejada para as próximas versões do SARR-Core Engine.*
+
+![Visão Futura do Projeto](assets/imagem-futura-do-projeto.png)
