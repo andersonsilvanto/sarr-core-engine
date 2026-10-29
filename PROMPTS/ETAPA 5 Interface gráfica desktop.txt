@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 4 do SARR-Core Engine (Interface Desktop):
+1. Desenvolva a interface gráfica local utilizando a tecnologia escolhida (confirme e fixe entre Tkinter ou PySide6 baseando-se na simplicidade e portabilidade).
+2. Construa as telas/abas principais: Dashboard, Escopo, Módulos, Nova Execução, Console de Execução, Auditoria, Mitigações, Relatórios e Configurações.
+3. Exiba claramente o indicador persistente de modo (ex: SIMULAÇÃO / SOMENTE LEITURA), o estado do Core e os módulos não implementados como "Planejado".
+4. Conecte a UI aos serviços de backend existentes de forma desacoplada, incluindo botão de parada visível e tratamento de erros amigável.

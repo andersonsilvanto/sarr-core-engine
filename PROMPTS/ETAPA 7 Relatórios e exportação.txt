@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 6 do SARR-Core Engine:
+1. Desenvolva o módulo de relatórios de auditoria estruturados (report_service.py).
+2. O relatório final deve incluir: identificação do sistema, operador, hash e validade do escopo, módulos executados, modo, horários de início/fim, métricas agregadas, achados com evidências, eventos do kill-switch acionados, motivo de parada, limitações e recomendações defensivas.
+3. Implemente exportação em formatos JSON e CSV (e opcionalmente PDF, caso a biblioteca esteja devidamente justificada e fixada).
+4. Garanta a sanitização de dados sensíveis e adicione testes validando a integridade dos campos obrigatórios do relatório.

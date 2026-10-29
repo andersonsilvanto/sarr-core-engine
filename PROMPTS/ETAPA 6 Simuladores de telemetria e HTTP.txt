@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 5 do SARR-Core Engine:
+1. Crie um simulador de telemetria (CPU, RAM, RTT, drop rate) e um servidor HTTP local de demonstração restrito a `localhost` para testes controlados de resiliência e circuit breaker.
+2. Permita injetar cenários reproduzíveis de teste: latência normal, RTT acima do limite (>1500ms), taxa de erros 5xx acima do limite (>5%), telemetria ausente e interrupção manual.
+3. Garanta que nenhuma requisição ou teste de carga seja direcionado a hosts externos ou redes públicas.
+4. Escreva testes de integração que provem a ativação automática do kill-switch ao atingir os limiares configurados.

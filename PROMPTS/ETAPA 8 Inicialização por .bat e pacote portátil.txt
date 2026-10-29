@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 7 e o empacotamento Windows do SARR-Core Engine:
+1. Finalize e ajuste os scripts batch de inicialização (`setup_windows.bat`, `run_windows.bat`) e crie o script de empacotamento (`build_portable.bat`).
+2. Implemente o suporte ao modo portátil utilizando a flag `portable.flag` para direcionar a pasta de dados (`data/`) para o diretório local ao lado do executável, garantindo testes de escrita e fallback adequado.
+3. Assegure que nenhum segredo, chave privada ou credencial real seja incluída no pacote de distribuição.
+4. Documente o procedimento de validação em máquina limpa e gere as instruções de verificação por hash SHA-256.

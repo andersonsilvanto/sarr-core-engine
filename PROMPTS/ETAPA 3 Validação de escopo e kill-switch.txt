@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 2 do SARR-Core Engine:
+1. Implemente o validador de escopo (scope_validator.py) baseado em schema JSON (scope.schema.json), validando engagement_id, environment, mode, janela de validade, alvos permitidos (allowlist estrita), módulos permitidos e limites operacionais.
+2. Implemente a política fail-closed: bloquear imediatamente a execução caso o arquivo esteja ausente, expirado, com alvos fora da allowlist ou com módulos não autorizados.
+3. Desenvolva o mecanismo de Kill-Switch central e os limites operacionais (duração, taxa, concorrência, volume, RTT > 1500ms e erros 5xx > 5%).
+4. Crie testes unitários negativos automatizados com fixtures locais simulando falhas de escopo e estourando os limiares de segurança.

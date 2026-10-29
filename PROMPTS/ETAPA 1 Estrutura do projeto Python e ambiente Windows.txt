@@ -1,0 +1,6 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente somente a Fase 0 do SARR-Core Engine:
+1. Crie a estrutura de diretórios e arquivos base do projeto conforme o padrão sugerido no plano de implementação (pyproject.toml, README.md, .gitignore, pastas src/, tests/, scripts/, config/, schemas/, docs/, artifacts/).
+2. Crie os scripts batch iniciais em scripts/ para Windows: setup_windows.bat e run_windows.bat, garantindo checagens de pré-requisitos, uso de caminhos relativos e ausência de exigência de privilégios de administrador por padrão.
+3. Crie um arquivo de exemplo config/config.example.json e o schema inicial de escopo.
+4. Adicione um teste unitário mínimo de importação para validar o ambiente virtual e pytest.
+Antes de escrever os arquivos, liste o plano de criação. Execute os testes disponíveis e reporte o resultado real.

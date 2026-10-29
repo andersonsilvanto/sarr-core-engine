@@ -1,0 +1,12 @@
+| Etapa | Implementação |
+|---|---|
+| 1 | Estrutura do projeto Python e ambiente Windows |
+| 2 | Core Engine e máquina de estados |
+| 3 | Validação de escopo e kill-switch |
+| 4 | Banco SQLite e trilha de auditoria |
+| 5 | Interface gráfica desktop |
+| 6 | Simuladores de telemetria e HTTP |
+| 7 | Relatórios e exportação |
+| 8 | Inicialização por `.bat` e pacote portátil |
+| 9 | Adaptadores passivos e integrações autorizadas |
+| 10 | Revisão de segurança e preparação da versão de lançamento |

@@ -1,0 +1,86 @@
+REGRAS OBRIGATÓRIAS DE AUTOMAÇÃO E SEGURANÇA:
+1. EXECUTAR SEM INTERVENÇÃO MANUAL: Realize a criação, gravação e execução de todos os arquivos descritos abaixo de forma totalmente autônoma. Não solicite confirmações manuais para etapas que possam ser codificadas diretamente.
+2. FAIL-CLOSED POR PADRÃO: Se qualquer teste de escopo, máquina de estados ou kill-switch falhar, analise o código-fonte, aplique a correção automaticamente e reexecute os testes.
+3. SEM ALUCINAÇÃO OU REDE EXTERNA: Todos os testes, simulações e validadores devem rodar estritamente em ambiente local (localhost / fixtures em memória / SQLite local).
+
+---
+
+PLANO DE EXECUÇÃO AUTOMATIZADA:
+
+PASSO 1: Criar o script automatizado de Smoke Test em `tests/smoke_test.py` com o conteúdo exato fornecido abaixo.
+PASSO 2: Inspecionar os módulos em `src/sarr_core/` (Engine, ScopeValidator, KillSwitch, Database). Caso exista divergência nos limiares (ex: RTT > 1500ms, Taxa de Erros 5xx > 5.0%), corrija o código automaticamente.
+PASSO 3: Executar o comando de validação via terminal Python:
+         `.venv\Scripts\python.exe -m pytest tests/smoke_test.py -v --tb=short`
+PASSO 4: Relatar o resultado detalhado (sucesso de 100% nos testes ou o log da autocorreção aplicada).
+
+---
+
+CONTEÚDO AUTOMÁTICO PARA `tests/smoke_test.py`:
+
+```python
+import os
+import json
+import pytest
+from datetime import datetime, timezone, timedelta
+
+# Importação dos Módulos Principais do SARR-Core
+from sarr_core.core.engine import Engine, EngineState, InvalidStateTransitionError
+from sarr_core.core.run_context import RunContext
+from sarr_core.safety.scope_validator import ScopeValidator, ScopeValidationError
+from sarr_core.safety.kill_switch import KillSwitch, KillSwitchTriggered
+
+def test_environment_and_imports():
+    """ST-01: Valida instanciação limpa do Core."""
+    engine = Engine()
+    assert engine is not None
+    assert engine.state == EngineState.IDLE
+
+def test_state_machine_invalid_transition():
+    """ST-02: Rejeita transições inválidas na máquina de estados."""
+    engine = Engine()
+    with pytest.raises(InvalidStateTransitionError):
+        engine.transition_to(EngineState.RUNNING)
+
+def test_scope_validator_missing_file(tmp_path):
+    """ST-03: Aplica fail-closed para escopo ausente."""
+    validator = ScopeValidator(scope_path=tmp_path / "non_existent_scope.json")
+    is_valid, reason = validator.validate()
+    assert is_valid is False
+    assert "file not found" in reason.lower() or "ausente" in reason.lower()
+
+def test_scope_validator_expired_date(tmp_path):
+    """ST-03: Bloqueia licença/escopo expirado."""
+    expired_scope = {
+        "schema_version": "1.0",
+        "engagement_id": "TEST-SMOKE-01",
+        "environment": "local-lab",
+        "mode": "simulation",
+        "valid_from": "2025-01-01T00:00:00Z",
+        "valid_until": "2025-01-02T00:00:00Z",
+        "authorized_by": "QA-Lead",
+        "targets": [{"type": "host", "value": "127.0.0.1", "allowed_modules": ["telemetry_demo"]}],
+        "limits": {"max_rtt_ms": 1500, "max_error_rate_percent": 5.0}
+    }
+    file_path = tmp_path / "expired_scope.json"
+    file_path.write_text(json.dumps(expired_scope))
+
+    validator = ScopeValidator(scope_path=file_path)
+    is_valid, reason = validator.validate()
+    assert is_valid is False
+    assert "expired" in reason.lower() or "expirado" in reason.lower()
+
+def test_kill_switch_rtt_threshold():
+    """ST-04: Dispara kill-switch com RTT > 1500ms."""
+    ks = KillSwitch(max_rtt_ms=1500, max_error_rate_percent=5.0)
+    assert ks.evaluate_metrics(current_rtt_ms=400, current_error_rate=1.0) is True
+    
+    with pytest.raises(KillSwitchTriggered) as exc_info:
+        ks.evaluate_metrics(current_rtt_ms=1501, current_error_rate=1.0)
+    assert "rtt" in str(exc_info.value).lower()
+
+def test_kill_switch_error_rate_threshold():
+    """ST-04: Dispara kill-switch com taxa de erro 5xx > 5%."""
+    ks = KillSwitch(max_rtt_ms=1500, max_error_rate_percent=5.0)
+    with pytest.raises(KillSwitchTriggered) as exc_info:
+        ks.evaluate_metrics(current_rtt_ms=200, current_error_rate=5.2)
+    assert "error" in str(exc_info.value).lower() or "taxa" in str(exc_info.value).lower()

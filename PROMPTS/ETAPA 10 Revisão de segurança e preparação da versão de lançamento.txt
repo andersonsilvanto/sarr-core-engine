@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 10 (Revisão Final e Release):
+1. Realize uma varredura completa de segurança no código-fonte, checando possíveis falhas de bypass de escopo (`scope.json`), condições de corrida no kill-switch, uso inseguro de subprocessos, vazamento de logs ou dependências desnecessárias.
+2. Ajuste testes de regressão para corrigir eventuais vulnerabilidades detectadas.
+3. Prepare o checklist de liberação final (`release-checklist.md`), validando que o sistema inicia obrigatoriamente em modo simulação, que a documentação de limitações está clara e que todas as dependências estão fixadas.
+4. Gere o sumário executivo com o status de prontidão do MVP para homologação em laboratório local isolado.

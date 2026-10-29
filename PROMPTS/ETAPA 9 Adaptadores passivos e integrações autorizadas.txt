@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 8 do SARR-Core Engine:
+1. Desenvolva adaptadores orientados estritamente à leitura passiva e inventário autorizado para Wi-Fi (802.11) e Bluetooth/BLE (somente leitura/inventário de GATT consentido).
+2. Priorize a importação estruturada de arquivos de inventário e dados simulados de laboratório. Deixe stubs documentados caso APIs de sistema operacional locais não estejam disponíveis ou compatíveis.
+3. Reforce estritamente as travas de segurança: proíba qualquer tentativa de desautenticação, captura maliciosa de credenciais, pareamento forçado ou injeção de pacotes sem autorização formal documentada.
+4. Escreva testes automatizados utilizando datasets sintéticos.

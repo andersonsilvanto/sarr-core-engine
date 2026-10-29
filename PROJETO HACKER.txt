@@ -1,0 +1,58 @@
+                ┌──────────────────────┐
+                │        INÍCIO        │
+                │ Inicialização segura │
+                └──────────┬───────────┘
+                           ▼
+                ┌──────────────────────┐
+                │ Carregar configurações│
+                │ scope.json + licença │
+                └──────────┬───────────┘
+                           ▼
+                ◇ Escopo e licença     ◇
+                ◇ são válidos?         ◇
+                   │             │
+                NÃO│             │SIM
+                   ▼             ▼
+          ┌────────────────┐  ┌───────────────────┐
+          │ BLOQUEAR        │  │ Confirmar escopo  │
+          │ execução        │  │ com o operador    │
+          └───────┬────────┘  └─────────┬─────────┘
+                  │                     ▼
+                  │             ◇ Autorizado? ◇
+                  │                │       │
+                  │              NÃO       SIM
+                  │                │       ▼
+                  │                │  ┌─────────────────┐
+                  │                │  │ Executar módulos│
+                  │                │  │ autorizados     │
+                  │                │  └────────┬────────┘
+                  │                │           ▼
+                  │                │  ┌─────────────────┐
+                  │                │  │ Monitorar CPU,  │
+                  │                │  │ RAM, RTT e erros│
+                  │                │  └────────┬────────┘
+                  │                │           ▼
+                  │                │    ◇ Limite excedido? ◇
+                  │                │       │          │
+                  │                │      SIM        NÃO
+                  │                │       ▼          │
+                  │                │  ┌───────────┐   │
+                  │                │  │ KILL-SWITCH│  │
+                  │                │  │ Interromper│  │
+                  │                │  └─────┬─────┘   │
+                  │                │        │         │
+                  │                │        │         └──► Monitorar
+                  ▼                ▼        ▼
+                ┌────────────────────────────┐
+                │ Registrar auditoria        │
+                │ Salvar eventos e métricas  │
+                └─────────────┬──────────────┘
+                              ▼
+                ┌────────────────────────────┐
+                │ Gerar relatórios           │
+                │ PDF • JSON • CSV           │
+                └─────────────┬──────────────┘
+                              ▼
+                ┌────────────────────────────┐
+                │ FIM — Execução encerrada   │
+                └────────────────────────────┘

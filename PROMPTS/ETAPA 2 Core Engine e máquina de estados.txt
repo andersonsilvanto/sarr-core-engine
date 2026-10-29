@@ -1,0 +1,5 @@
+Aplique as REGRAS OBRIGATORIAS PARA ESTA TAREFA. Implemente a Fase 1 do SARR-Core Engine:
+1. Desenvolva o núcleo de orquestração em src/core/ com a máquina de estados explícita contendo os estados: IDLE, VALIDATING, READY, RUNNING, STOPPING, STOPPED, BLOCKED, FAILED, COMPLETED.
+2. Implemente o RunContext, o EventBus local e o ModuleRegistry.
+3. Garanta que nenhuma execução ocorra sem um ID único (run_id), timestamp UTC e modo configurado, rejeitando transições de estado inválidas.
+4. Escreva testes unitários rigorosos cobrindo transições permitidas e proibidas, isolamento de execuções e eventos duplicados.
