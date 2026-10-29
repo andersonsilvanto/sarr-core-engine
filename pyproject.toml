@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sarr-core-engine"
 version = "0.1.0"
-description = "SARR-Core Engine"
+description = "Motor local de auditoria defensiva e telemetria de segurança"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["jsonschema==4.26.0"]
@@ -16,3 +16,13 @@ where = ["src"]
 [tool.setuptools.data-files]
 "schemas" = ["schemas/scope.schema.json", "schemas/dashboard.schema.json"]
 "config" = ["config/dashboard.schema.json", "config/canary_credentials.json"]
+"docs" = [
+    "docs/arquitetura-sarr-core.pdf",
+    "docs/arquitetura.txt",
+    "docs/plano-implementacao-sarr-core.pdf",
+    "docs/visao-do-projeto.txt",
+]
+"assets" = [
+    "assets/Arquitetura_do_SARR-Core_Engine.png",
+    "assets/painel-soc.png",
+]

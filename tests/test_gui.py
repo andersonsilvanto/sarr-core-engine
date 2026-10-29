@@ -1,10 +1,15 @@
-import tkinter as tk
+import importlib.util
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
 from core.security_audit import SecurityFinding
-from sarr_core.gui import LocalDashboard, launch_gui
+
+_HAS_TKINTER = importlib.util.find_spec("tkinter") is not None
+if _HAS_TKINTER:
+    import tkinter as tk
+
+    from sarr_core.gui import LocalDashboard, launch_gui
 
 
 class FakeRoot:
@@ -15,6 +20,7 @@ class FakeRoot:
         self.mainloop_called = True
 
 
+@unittest.skipUnless(_HAS_TKINTER, "Tkinter is not installed")
 class GuiTests(unittest.TestCase):
     def test_soc_event_severity_classification(self) -> None:
         self.assertEqual(
@@ -53,15 +59,15 @@ class GuiTests(unittest.TestCase):
     def test_soc_posture_fails_closed_for_findings_and_kill_switch(self) -> None:
         self.assertEqual(
             LocalDashboard._posture_for("COMPLETED", 0, False),
-            ("SECURE", "Posture.SECURE.TLabel"),
+            ("SEGURO", "Posture.SECURE.TLabel"),
         )
         self.assertEqual(
             LocalDashboard._posture_for("COMPLETED", 1, False),
-            ("VULNERABLE", "Posture.VULNERABLE.TLabel"),
+            ("VULNERÁVEL", "Posture.VULNERABLE.TLabel"),
         )
         self.assertEqual(
             LocalDashboard._posture_for("BLOCKED", 0, True),
-            ("ATTACK / KILL-SWITCH", "Posture.ATTACK.TLabel"),
+            ("ATAQUE / KILL-SWITCH", "Posture.ATTACK.TLabel"),
         )
 
     def test_traffic_light_colors_match_security_posture(self) -> None:
@@ -91,13 +97,13 @@ class GuiTests(unittest.TestCase):
             LocalDashboard._integrity_status_for(
                 SimulationSnapshot(run_id, RunState.COMPLETED, (), ("config/test.json",))
             ),
-            "RESTORED / HEALED",
+            "RESTAURADO / CORRIGIDO",
         )
         self.assertEqual(
             LocalDashboard._integrity_status_for(
                 SimulationSnapshot(run_id, RunState.BLOCKED, ())
             ),
-            "UNVERIFIED / FAIL-CLOSED",
+            "NÃO VERIFICADO / FAIL-CLOSED",
         )
 
     def test_scanner_pipeline_indicator_distinguishes_ready_and_fallback(self) -> None:
@@ -126,12 +132,37 @@ class GuiTests(unittest.TestCase):
 
         self.assertEqual(
             LocalDashboard._scanner_pipeline_status_for(ready),
-            "READY — Nmap loopback + Tshark offline",
+            "PRONTO — Nmap em 127.0.0.1 + Tshark offline",
         )
         self.assertEqual(
             LocalDashboard._scanner_pipeline_status_for(fallback),
-            "FALLBACK — simulação interna ativa",
+            "ALTERNATIVO — simulação interna ativa",
         )
+
+    def test_findings_table_severity_tags_are_normalized(self) -> None:
+        for severity, expected in (
+            ("critical", "CRITICAL"),
+            ("high", "CRITICAL"),
+            ("medium", "WARNING"),
+            ("warning", "WARNING"),
+            ("low", "INFO"),
+            ("info", "INFO"),
+            ("unexpected", "INFO"),
+        ):
+            with self.subTest(severity=severity):
+                self.assertEqual(
+                    LocalDashboard._row_tag_for_severity(severity),
+                    expected,
+                )
+
+    def test_findings_display_severity_is_in_portuguese(self) -> None:
+        for severity, expected in (
+            ("CRITICAL", "CRÍTICO"),
+            ("WARNING", "ATENÇÃO"),
+            ("INFO", "INFORMATIVO"),
+        ):
+            with self.subTest(severity=severity):
+                self.assertEqual(LocalDashboard._severity_label(severity), expected)
 
     def test_selected_finding_details_include_red_blue_and_blocking_guidance(self) -> None:
         finding = SecurityFinding(
@@ -220,7 +251,7 @@ class GuiTests(unittest.TestCase):
         dashboard.assert_called_once_with(root)
 
     def test_launch_gui_reports_missing_desktop_display(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "desktop display"):
+        with self.assertRaisesRegex(RuntimeError, "área de trabalho"):
             launch_gui(
                 root_factory=lambda: (_ for _ in ()).throw(
                     tk.TclError("no display")

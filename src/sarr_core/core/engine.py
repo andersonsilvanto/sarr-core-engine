@@ -18,7 +18,9 @@ class EngineState(Enum):
     RUNNING = "RUNNING"
     STOPPING = "STOPPING"
     STOPPED = "STOPPED"
+    BLOCKED = "BLOCKED"
     FAILED = "FAILED"
+    COMPLETED = "COMPLETED"
 
 
 _RUN_STATES = {state.value: state for state in RunState}

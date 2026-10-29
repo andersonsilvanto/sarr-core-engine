@@ -447,6 +447,7 @@ class SecuritySimulationTests(unittest.TestCase):
         self.assertEqual(snapshot.state.value, "BLOCKED")
         self.assertEqual(canary.severity, "critical")
         self.assertEqual(canary.evidence["reason"], "accessed")
+        self.assertEqual(canary.summary, "O arquivo-isca canário foi acessado.")
         self.assertEqual(audit_event["payload"]["severity"], "critical")
         self.assertIn("safety.triggered", {name for _, name in events})
 

@@ -1,6 +1,19 @@
 # SARR-Core Engine
 
-Estrutura inicial do SARR-Core Engine.
+Motor local de auditoria defensiva, telemetria e resposta fail-closed. A
+interface e a simulação priorizam evidências locais ou sintéticas e não
+executam ações ofensivas.
+
+## Documentação e recursos visuais
+
+- [Visão do projeto](docs/visao-do-projeto.txt)
+- [Arquitetura em texto](docs/arquitetura.txt)
+- [Documento de arquitetura, casos de uso e fluxogramas](docs/arquitetura-sarr-core.pdf)
+- [Plano de implementação](docs/plano-implementacao-sarr-core.pdf)
+- [Diagrama da arquitetura](assets/Arquitetura_do_SARR-Core_Engine.png)
+- [Painel SOC](assets/painel-soc.png)
+
+![Painel SOC local](assets/painel-soc.png)
 
 ## Núcleo de orquestração
 
@@ -125,18 +138,18 @@ No Linux/macOS, o equivalente é
 `LOCALAPPDATA` no Windows e segue `XDG_DATA_HOME` (ou `~/.local/share`) no
 Linux; no macOS usa `~/Library/Application Support`.
 
-`--gui` abre o painel SOC Tk local: postura (`SECURE`, `VULNERABLE` ou
-`ATTACK / KILL-SWITCH`), Hardening Score (0–100), tabela de findings, console
+`--gui` abre o painel SOC Tk local: postura (`SEGURO`, `VULNERÁVEL` ou
+`ATAQUE / KILL-SWITCH`), índice de proteção (0–100), tabela de achados, console
 SIEM com severidade e controles para iniciar a auditoria, acionar o kill-switch
-manual ou restaurar baselines conhecidas. A interface importa a fachada
+manual ou restaurar referências conhecidas. A interface importa a fachada
 `sarr_core.simulation`; não manipula diretamente a máquina de estados ou os
 repositórios do motor. Após uma auditoria, o painel permite exportar um
 relatório executivo sanitizado em JSON ou Markdown. A tabela apresenta nomes e
 impactos em linguagem simples, com indicador verde para postura segura, amarelo
-para atenção e vermelho para bloqueio crítico. O detalhe do finding mantém a
+para atenção e vermelho para bloqueio crítico. O detalhe do achado mantém a
 referência técnica e as evidências; a ação rápida copia a orientação sem executar
 comandos. A mitigação automática só é habilitada para restaurar
-`config/dashboard.schema.json` de sua baseline verificada.
+`config/dashboard.schema.json` de sua referência verificada.
 
 Para exportar o JSON da última execução persistida ou o schema do dashboard:
 
@@ -162,33 +175,33 @@ execução real ou simulada.
 temporário restrito a `127.0.0.1`, depois processa inventário local, hashes dos
 schemas do projeto e cenários sintéticos. O fluxo padrão não abre sockets nem
 envia requisições; se Nmap estiver instalado, é feita uma verificação TCP
-limitada ao próprio loopback, sem tentativa de autenticação. Os cenários
+limitada ao endereço local `127.0.0.1`, sem tentativa de autenticação. Os cenários
 disponíveis são `normal`, `unauthorized-port`, `integrity-mismatch`,
 `brute-force`, `manual-interruption`, `porta_desprotegida`,
 `permissao_frouxa`, `hash_adulterado`, `obfuscation`, `persistence`,
 `canary-access` e `ghost-port`; os cenários de risco disparam o kill-switch e terminam em
 `BLOCKED`. Ofuscação, comandos subprocess simulados e mecanismos de persistência
-são analisados somente como fixtures estáticas; nenhum payload é decodificado
+são analisados somente como cenários estáticos; nenhum payload é decodificado
 ou executado, e nenhum processo, tarefa agendada ou chave de inicialização é
 consultado.
-Findings exportados incluem vetor de ataque, remediação, referência MITRE
+Achados exportados incluem vetor de ataque, remediação, referência MITRE
 ATT&CK e ação de bloqueio; as descrições de ataque são explicativas e não
 executam exploração. Os hashes de referência dos schemas são
 fixados no código e precisam ser revisados intencionalmente quando esses arquivos
 forem atualizados. A verificação de permissões POSIX é somente leitura; no
 Windows, a auditoria registra explicitamente que ACLs não foram verificadas.
 O FIM também verifica arquivos conhecidos de `config/` e `schemas/`; arquivos
-adicionais sem baseline aprovada são críticos e bloqueiam a execução. As
+adicionais sem referência aprovada são críticos e bloqueiam a execução. As
 simulações atômicas T1083, T1046 e T1222 limitam-se à enumeração local de
 arquivos e a inventários fornecidos/sintéticos, sem varredura de rede ou
-alteração de permissões. “Restaurar Baselines / Fix” pode restaurar somente
+alteração de permissões. “Restaurar referências” pode restaurar somente
 `config/dashboard.schema.json`, depois de verificar `schemas/dashboard.schema.json`
 contra seu hash aprovado; em seguida, executa uma nova auditoria. Outros
-findings requerem remediação revisada pelo operador.
+achados requerem remediação revisada pelo operador.
 
 `config/canary_credentials.json` contém exclusivamente um marcador fictício e
-faz parte das baselines FIM. Uma adulteração detectada ou um sinal explícito de
-acesso sintético gera `deception.canary.triggered` CRITICAL e aciona o
+faz parte das referências de integridade. Uma adulteração detectada ou um sinal explícito de
+acesso sintético gera `deception.canary.triggered` com severidade crítica e aciona o
 kill-switch. O aplicativo não instala hooks nem monitora leituras externas do
 sistema operacional; detecção geral de acesso exige telemetria autorizada do
 host, não fornecida por esta simulação.
@@ -204,7 +217,7 @@ existente dentro do projeto. Se qualquer ferramenta estiver ausente ou falhar, o
 CLI/GUI registra aviso e mantém o fallback de simulação local. O cenário
 `ghost-port` é exclusivamente sintético: não abre
 porta, envia pacotes ou captura requisições reais; registra somente um hash
-fixo da assinatura de fixture.
+fixo da assinatura de cenário.
 
 `--bootstrap-scanners` e o botão correspondente no SOC verificam o PATH e os
 diretórios padrão do Windows e exibem instruções `winget` para instalação
@@ -212,15 +225,15 @@ assistida. O aplicativo não baixa nem executa instaladores; revise o editor do
 pacote e confirme a instalação manualmente. A correlação Nmap + Tshark só ocorre
 quando ambos estão disponíveis e o operador fornece uma captura offline
 autorizada dentro do projeto. Frames com protocolos em texto claro observados
-em pacotes loopback (`127.0.0.1`/`::1`) para portas TCP descobertas pelo Nmap
-geram `network.correlation.vulnerability_detected` (CRITICAL, T1040) e acionam
+em pacotes locais (`127.0.0.1`/`::1`) para portas TCP descobertas pelo Nmap
+geram `network.correlation.vulnerability_detected` (crítico, T1040) e acionam
 o kill-switch. A correlação não exporta payloads e não trata tráfego TLS como
 texto claro.
 
 A auto-cura mantém em memória cópias apenas de arquivos com SHA-256 igual às
-baselines embutidas na versão instalada. Uma alteração posterior à captura da
-baseline é substituída atomicamente e verificada; symlinks, arquivos sem
-baseline ou falhas de escrita continuam fail-closed e não são reparados.
+referências embutidas na versão instalada. Uma alteração posterior à captura da
+referência é substituída atomicamente e verificada; symlinks, arquivos sem
+referência ou falhas de escrita continuam fail-closed e não são reparados.
 
 ## Diretório de dados
 
@@ -233,7 +246,7 @@ diretório persistente do usuário. Se ambos falharem, a execução é bloqueada
 ## Preparação de release
 
 O checklist atual e o status de prontidão estão em
-[`release-checklist.md`](release-checklist.md). O estado é source-only: não
+[`release-checklist.md`](release-checklist.md). O estado é somente código-fonte: não
 há executável portátil nem validação em uma máquina limpa nesta etapa.
 
 ## Testes legados de resiliência HTTP
@@ -263,7 +276,7 @@ with LocalDemoServer(TelemetryScenario.NORMAL_LATENCY) as server:
 ```
 
 Os testes existentes para `TelemetryScenario` ainda verificam RTT, respostas
-5xx, telemetria ausente e interrupção manual em loopback, sem acesso a redes
+5xx, telemetria ausente e interrupção manual em `127.0.0.1`, sem acesso a redes
 externas. Eles são infraestrutura de teste preexistente, não uma coleta de
 métricas de hardware nem parte do fluxo atual de `--run-sim`.
 
@@ -303,7 +316,7 @@ Estes adaptadores **não enumeram rádios nem fazem operações ao vivo**: não
 escaneiam, associam, desautenticam, capturam credenciais, pareiam, leem
 características GATT de dispositivos, injetam pacotes ou transmitem. A chamada
 `collect_from_os()` falha explicitamente como stub não suportado. Somente os
-datasets sintéticos em `tests/fixtures/` acompanham os testes; eles usam
+conjuntos de dados sintéticos em `tests/fixtures/` acompanham os testes; eles usam
 identificadores localmente administrados e nomes marcados como sintéticos.
 
 O registro de autorização importado é evidência documental declarada no

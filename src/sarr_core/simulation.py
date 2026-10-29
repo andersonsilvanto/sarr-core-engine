@@ -35,9 +35,9 @@ from sarr_core.external_scanners import ExternalScannerManager
 
 _FILE_BASELINES = {
     "config/dashboard.schema.json": "d92ec42429b3040fa8d6c6ace0c780b03a8e29a542a45864fd13c2150d2dbb1d",
-    "schemas/dashboard.schema.json": "699a4e898bce011696176992b3d4984256990b4fe3b3f25975ebdd3b2cde51a2",
-    "schemas/scope.schema.json": "0a22a28baae7ebc583ac4928a68e3eee88607b11aa6a630243b14e5d5f2b8c65",
-    "config/canary_credentials.json": "304df6a2c3eab7fc3a06326936da670ff514aa0ce9d159362caabf315b0eae98",
+    "schemas/dashboard.schema.json": "cb365b4e840274535eed412f0f964cc40dbe73415b46531b2aeea3e3d01ecf83",
+    "schemas/scope.schema.json": "b2f3aad232639b1cb426ecdc5e8af20d4f903f630abc3e68d3c93460bc53d82a",
+    "config/canary_credentials.json": "0e0327a52fce728467937890299c8ae121e19b398c1855445323c6056e3ec9a6",
 }
 _REPAIRABLE_BASELINES = {
     "config/dashboard.schema.json": (

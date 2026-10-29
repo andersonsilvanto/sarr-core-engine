@@ -37,6 +37,17 @@ _WARNING_EVENTS = {
     "external.scanner.failed",
 }
 
+_DETAIL_VAZIO = (
+    "Nenhuma auditoria executada ainda. Clique em "
+    '"Executar Varredura de Segurança" e depois selecione um achado '
+    "para ver o risco (Red Team), a correção (Blue Team) e a ação de "
+    "bloqueio recomendada."
+)
+_DETAIL_SELECIONE = (
+    "Selecione um achado na tabela para ver o risco (Red Team), a correção "
+    "(Blue Team) e a ação de bloqueio recomendada."
+)
+
 _PLAIN_LANGUAGE: dict[str, tuple[str, str, str]] = {
     "security.port.exposed": (
         "Serviço local não aprovado",
@@ -46,12 +57,12 @@ _PLAIN_LANGUAGE: dict[str, tuple[str, str, str]] = {
     "integrity.hash.mismatch": (
         "Arquivo de configuração foi alterado",
         "O arquivo não corresponde à versão confiável. A configuração pode ter sido modificada.",
-        "Mantenha a execução bloqueada e restaure somente de uma baseline verificada.",
+        "Mantenha a execução bloqueada e restaure somente de uma referência verificada.",
     ),
     "integrity.baseline.missing": (
         "Arquivo sem versão confiável",
-        "Não há uma baseline aprovada para comparar este arquivo; não é possível confirmar sua integridade.",
-        "Verifique a origem do arquivo e aprove uma baseline antes de liberar o sistema.",
+        "Não há uma referência aprovada para comparar este arquivo; não é possível confirmar sua integridade.",
+        "Verifique a origem do arquivo e aprove uma referência antes de liberar o sistema.",
     ),
     "integrity.audit.failed": (
         "Não foi possível verificar um arquivo",
@@ -85,7 +96,7 @@ _PLAIN_LANGUAGE: dict[str, tuple[str, str, str]] = {
     ),
     "persistence.point.detected": (
         "Configuração sugere inicialização automática",
-        "Uma fixture de teste representa um mecanismo que poderia iniciar um programa automaticamente; nenhum mecanismo real foi alterado.",
+        "Um cenário de teste representa um mecanismo que poderia iniciar um programa automaticamente; nenhum mecanismo real foi alterado.",
         "Revise os itens de inicialização no sistema usando ferramentas administrativas aprovadas.",
     ),
     "deception.canary.triggered": (
@@ -114,12 +125,12 @@ _PLAIN_LANGUAGE: dict[str, tuple[str, str, str]] = {
         "Revise os resultados no contexto do escopo autorizado.",
     ),
     "external.scanner.unavailable": (
-        "Scanner externo não encontrado",
-        "A auditoria continuou com verificações locais e sintéticas. A ausência do scanner não significa que o sistema esteja seguro.",
+        "Ferramenta de varredura externa não encontrada",
+        "A auditoria continuou com verificações locais e sintéticas. A ausência da ferramenta de varredura não significa que o sistema esteja seguro.",
         "Instale a ferramenta somente se necessária e por um canal confiável.",
     ),
     "external.scanner.failed": (
-        "Scanner externo não concluiu a checagem",
+        "A ferramenta de varredura externa não concluiu a checagem",
         "A auditoria continuou sem evidência válida dessa ferramenta; o resultado externo não foi tratado como seguro.",
         "Revise a instalação local da ferramenta e repita a checagem.",
     ),
@@ -172,8 +183,8 @@ class LocalDashboard:
         style.configure("Posture.VULNERABLE.TLabel", foreground="#a85d00")
         style.configure("Posture.ATTACK.TLabel", foreground="#b42318")
         style.configure("Posture.PENDING.TLabel", foreground="#475467")
-        self._posture = tk.StringVar(value="AUDIT PENDING")
-        self._hardening_score = tk.StringVar(value="Hardening Score: —/100")
+        self._posture = tk.StringVar(value="AUDITORIA PENDENTE")
+        self._hardening_score = tk.StringVar(value="Índice de proteção: —/100")
         ttk.Label(
             header,
             textvariable=self._hardening_score,
@@ -212,25 +223,27 @@ class LocalDashboard:
         self._state = tk.StringVar(value="IDLE")
         self._run_id = tk.StringVar(value="—")
         self._findings_count = tk.StringVar(value="0")
-        self._integrity_status = tk.StringVar(value="PENDING")
-        self._scanner_status = tk.StringVar(value="PENDING")
+        self._integrity_status = tk.StringVar(value="PENDENTE")
+        self._scanner_status = tk.StringVar(value="PENDENTE")
         self._add_value(details, 0, "Estado", self._state)
         self._add_value(details, 1, "run_id", self._run_id)
         self._add_value(details, 2, "Achados", self._findings_count)
         self._add_value(details, 3, "Integridade dinâmica", self._integrity_status)
-        self._add_value(details, 4, "Nmap + Tshark Engine", self._scanner_status)
+        self._add_value(details, 4, "Ferramentas (Nmap + Tshark)", self._scanner_status)
 
         self._message = tk.StringVar(
             value=(
-                "Auditoria local: fixtures sintéticas; Nmap limitado a 127.0.0.1 "
+                "Auditoria local: cenários sintéticos; Nmap limitado a 127.0.0.1 "
                 "quando disponível; Tshark somente em captura offline."
             )
         )
-        ttk.Label(
+        self._message_label = ttk.Label(
             container,
             textvariable=self._message,
             wraplength=800,
-        ).grid(row=2, column=0, sticky="w", pady=(8, 10))
+        )
+        self._message_label.grid(row=2, column=0, sticky="w", pady=(8, 10))
+        container.bind("<Configure>", self._resize_message_wrap)
 
         actions = ttk.Frame(container)
         actions.grid(row=3, column=0, sticky="w", pady=(0, 10))
@@ -249,28 +262,28 @@ class LocalDashboard:
         self._stop_button.grid(row=0, column=1)
         self._fix_button = ttk.Button(
             actions,
-            text="Restaurar Baselines / Fix",
+            text="Restaurar referências",
             command=self._start_remediation,
             state=tk.DISABLED,
         )
         self._fix_button.grid(row=0, column=2, padx=(8, 0))
         self._export_button = ttk.Button(
             actions,
-            text="Exportar Relatório Executivo",
+            text="Exportar relatório executivo",
             command=self._export_executive_report,
             state=tk.DISABLED,
         )
         self._export_button.grid(row=0, column=3, padx=(8, 0))
         self._bootstrap_button = ttk.Button(
             actions,
-            text="Verificar / Instalar Scanners Externos",
+            text="Verificar ferramentas de varredura",
             command=self._bootstrap_scanners,
         )
         self._bootstrap_button.grid(row=1, column=0, sticky="w", pady=(8, 0))
 
         findings_frame = ttk.LabelFrame(
             container,
-            text="Findings / Descobertas",
+            text="Achados",
             padding=8,
         )
         findings_frame.grid(row=5, column=0, sticky="nsew", pady=(0, 10))
@@ -282,6 +295,9 @@ class LocalDashboard:
             show="headings",
             height=7,
         )
+        self._findings_table.tag_configure("CRITICAL", foreground="#b42318")
+        self._findings_table.tag_configure("WARNING", foreground="#a85d00")
+        self._findings_table.tag_configure("INFO", foreground="#344054")
         self._findings_table.heading("severity", text="Severidade")
         self._findings_table.heading("event", text="Evento")
         self._findings_table.heading("mitre", text="MITRE ATT&CK")
@@ -307,7 +323,7 @@ class LocalDashboard:
 
         detail_frame = ttk.LabelFrame(
             container,
-            text="Análise e resposta do finding selecionado",
+            text="Análise e resposta do achado selecionado",
             padding=8,
         )
         detail_frame.grid(row=6, column=0, sticky="nsew", pady=(0, 10))
@@ -344,14 +360,11 @@ class LocalDashboard:
             state=tk.DISABLED,
         )
         self._safe_mitigation_button.grid(row=0, column=1)
-        self._set_finding_details(
-            "Selecione um finding para ver o risco Red Team, a remediação Blue "
-            "Team e a ação de bloqueio recomendada."
-        )
+        self._set_finding_details(_DETAIL_VAZIO)
 
         events_frame = ttk.LabelFrame(
             container,
-            text="Console SIEM / Eventos",
+            text="Console SIEM — eventos",
             padding=8,
         )
         events_frame.grid(row=7, column=0, sticky="nsew")
@@ -375,6 +388,10 @@ class LocalDashboard:
         self._events.configure(yscrollcommand=events_scroll.set)
         self._events.grid(row=0, column=0, sticky="nsew")
         events_scroll.grid(row=0, column=1, sticky="ns")
+        self._append_console_line(
+            "SARR-Core pronto. Nenhuma auditoria executada.",
+            "INFO",
+        )
 
         self._root.after(100, self._poll)
 
@@ -403,14 +420,22 @@ class LocalDashboard:
         return "INFO"
 
     @staticmethod
+    def _severity_label(severity: str) -> str:
+        return {
+            "CRITICAL": "CRÍTICO",
+            "WARNING": "ATENÇÃO",
+            "INFO": "INFORMATIVO",
+        }.get(severity.upper(), "INFORMATIVO")
+
+    @staticmethod
     def _integrity_status_for(snapshot: SimulationSnapshot) -> str:
         if snapshot.healed_paths:
-            return "RESTORED / HEALED"
+            return "RESTAURADO / CORRIGIDO"
         if snapshot.state.value == "COMPLETED":
-            return "VERIFIED"
+            return "VERIFICADO"
         if snapshot.state.value == "BLOCKED":
-            return "UNVERIFIED / FAIL-CLOSED"
-        return "CHECKING"
+            return "NÃO VERIFICADO / FAIL-CLOSED"
+        return "VERIFICANDO"
 
     @staticmethod
     def _scanner_pipeline_status_for(snapshot: SimulationSnapshot) -> str:
@@ -420,10 +445,10 @@ class LocalDashboard:
             ("disponível", "análise offline concluída")
         )
         if nmap_ready and tshark_ready:
-            return "READY — Nmap loopback + Tshark offline"
+            return "PRONTO — Nmap em 127.0.0.1 + Tshark offline"
         if statuses:
-            return "FALLBACK — simulação interna ativa"
-        return "NOT CHECKED"
+            return "ALTERNATIVO — simulação interna ativa"
+        return "NÃO VERIFICADO"
 
     @staticmethod
     def _posture_for(
@@ -432,12 +457,24 @@ class LocalDashboard:
         kill_switch_active: bool,
     ) -> tuple[str, str]:
         if kill_switch_active or state == "BLOCKED":
-            return "ATTACK / KILL-SWITCH", "Posture.ATTACK.TLabel"
+            return "ATAQUE / KILL-SWITCH", "Posture.ATTACK.TLabel"
         if finding_count:
-            return "VULNERABLE", "Posture.VULNERABLE.TLabel"
+            return "VULNERÁVEL", "Posture.VULNERABLE.TLabel"
         if state == "COMPLETED":
-            return "SECURE", "Posture.SECURE.TLabel"
-        return "AUDIT PENDING", "Posture.PENDING.TLabel"
+            return "SEGURO", "Posture.SECURE.TLabel"
+        return "AUDITORIA PENDENTE", "Posture.PENDING.TLabel"
+
+    @staticmethod
+    def _row_tag_for_severity(severity: str) -> str:
+        normalized = severity.lower()
+        if normalized in {"critical", "high"}:
+            return "CRITICAL"
+        if normalized in {"medium", "warning"}:
+            return "WARNING"
+        return "INFO"
+
+    def _resize_message_wrap(self, event: tk.Event) -> None:
+        self._message_label.configure(wraplength=max(320, event.width - 40))
 
     @staticmethod
     def _traffic_color_for(style_name: str) -> str:
@@ -505,6 +542,7 @@ class LocalDashboard:
         self._events.configure(state=tk.NORMAL)
         self._events.delete("1.0", tk.END)
         self._events.configure(state=tk.DISABLED)
+        self._append_console_line("Auditoria iniciada.", "INFO")
         for item in self._findings_table.get_children():
             self._findings_table.delete(item)
         self._finding_by_item.clear()
@@ -512,14 +550,12 @@ class LocalDashboard:
         self._copy_recommendation_button.configure(state=tk.DISABLED)
         self._safe_mitigation_button.configure(state=tk.DISABLED)
         self._rendered_findings = ()
-        self._set_finding_details(
-            "Selecione um finding para ver os detalhes e as ações recomendadas."
-        )
+        self._set_finding_details("Auditoria em andamento...")
         self._findings_count.set("0")
-        self._integrity_status.set("CHECKING")
-        self._scanner_status.set("Checking tools...")
-        self._hardening_score.set("Hardening Score: —/100")
-        self._posture.set("AUDIT PENDING")
+        self._integrity_status.set("VERIFICANDO")
+        self._scanner_status.set("Verificando ferramentas...")
+        self._hardening_score.set("Índice de proteção: —/100")
+        self._posture.set("AUDITORIA PENDENTE")
         self._posture_label.configure(style="Posture.PENDING.TLabel")
         self._traffic_light.itemconfigure(
             self._traffic_light_item,
@@ -579,7 +615,7 @@ class LocalDashboard:
             return
         if not messagebox.askyesno(
             "Aplicar mitigação segura",
-            "Restaurar config/dashboard.schema.json usando somente a baseline "
+            "Restaurar config/dashboard.schema.json usando somente a referência "
             "SHA-256 aprovada e depois repetir a auditoria?",
             parent=self._root,
         ):
@@ -600,11 +636,11 @@ class LocalDashboard:
         ]
         lines.extend(guidance)
         if not guidance:
-            lines.append("Scanners encontrados. Nmap permanece restrito ao loopback.")
+            lines.append("Ferramentas encontradas. Nmap permanece restrito a 127.0.0.1.")
         message = "\n".join(lines)
         self._message.set(message)
         messagebox.showinfo(
-            "Nmap + Tshark Engine",
+            "Ferramentas de varredura (Nmap + Tshark)",
             message,
             parent=self._root,
         )
@@ -630,7 +666,7 @@ class LocalDashboard:
             parent=self._root,
             title="Salvar relatório executivo",
             initialdir=str(session.data_directory),
-            initialfile=f"{session.snapshot.run_id}-executive{extension}",
+            initialfile=f"{session.snapshot.run_id}-executivo{extension}",
             defaultextension=extension,
             filetypes=filetypes,
         )
@@ -650,7 +686,7 @@ class LocalDashboard:
         if self._worker is not None:
             return
         if not confirmed and not messagebox.askyesno(
-            "Restaurar baseline",
+            "Restaurar referência",
             "A ação restaura somente config/dashboard.schema.json a partir do "
             "schema de origem verificado. Deseja continuar?",
             parent=self._root,
@@ -659,7 +695,7 @@ class LocalDashboard:
         self._run_button.configure(state=tk.DISABLED)
         self._stop_button.configure(state=tk.DISABLED)
         self._fix_button.configure(state=tk.DISABLED)
-        self._message.set("Validando origem confiável e restaurando baseline...")
+        self._message.set("Validando origem confiável e restaurando a referência...")
         worker = threading.Thread(
             target=self._remediation_worker,
             name="sarr-gui-baseline-remediation",
@@ -709,7 +745,9 @@ class LocalDashboard:
                 elif kind == "remediated":
                     restored_paths, snapshot, remediated_session = value
                     if not isinstance(snapshot, SimulationSnapshot):
-                        raise TypeError("Remediation returned an invalid audit snapshot.")
+                        raise TypeError(
+                            "A restauração retornou um resultado de auditoria inválido."
+                        )
                     self._session = remediated_session
                     self._rendered_event_count = 0
                     self._update_snapshot(snapshot)
@@ -718,8 +756,8 @@ class LocalDashboard:
                         path.as_posix() for path in restored_paths
                     ) or "nenhum arquivo precisava de restauração"
                     self._message.set(
-                        f"Baseline restaurada ({restored}); auditoria de confirmação "
-                        f"concluída com score {snapshot.hardening_score}/100."
+                        f"Referência restaurada ({restored}); auditoria de confirmação "
+                        f"concluída com índice {snapshot.hardening_score}/100."
                     )
                     self._finish_worker()
                 elif kind == "failed" and isinstance(value, Exception):
@@ -750,7 +788,7 @@ class LocalDashboard:
         self._run_id.set(str(snapshot.run_id))
         self._findings_count.set(str(len(snapshot.findings)))
         self._hardening_score.set(
-            f"Hardening Score: {hardening_score(snapshot.findings)}/100"
+            f"Índice de proteção: {hardening_score(snapshot.findings)}/100"
         )
         self._integrity_status.set(self._integrity_status_for(snapshot))
         self._scanner_status.set(self._scanner_pipeline_status_for(snapshot))
@@ -782,33 +820,37 @@ class LocalDashboard:
         self._rendered_findings = snapshot.findings
         self._rendered_healed_paths = snapshot.healed_paths
         if snapshot.healed_paths:
+            healed_tag = self._row_tag_for_severity("info")
             self._findings_table.insert(
                 "",
                 tk.END,
                 iid="integrity-healed",
                 values=(
-                    "INFO",
+                    "INFORMATIVO",
                     "security.state.healed",
-                    "N/A",
-                    "RESTORED / HEALED",
+                    "Não se aplica",
+                    "RESTAURADO / CORRIGIDO",
                     ", ".join(snapshot.healed_paths),
                 ),
+                tags=(healed_tag,),
             )
         for index, finding in enumerate(snapshot.findings):
             item_id = f"finding-{index}"
             self._finding_by_item[item_id] = finding
             title, summary, _ = self._plain_language_for_finding(finding)
+            row_tag = self._row_tag_for_severity(finding.severity)
             self._findings_table.insert(
                 "",
                 tk.END,
                 iid=item_id,
                 values=(
-                    finding.severity.upper(),
+                    self._severity_label(row_tag),
                     title,
-                    finding.mitre_id or "N/A",
+                    finding.mitre_id or "Não se aplica",
                     "Revisar" if finding.severity.lower() != "info" else "Informativo",
                     summary,
                 ),
+                tags=(row_tag,),
             )
         if snapshot.findings:
             first_item = "finding-0"
@@ -819,10 +861,16 @@ class LocalDashboard:
             self._findings_table.selection_set("integrity-healed")
             self._findings_table.focus("integrity-healed")
             self._show_selected_finding()
+        else:
+            self._set_finding_details("Nenhum achado nesta auditoria.")
 
     def _show_selected_finding(self, _event: object = None) -> None:
         selected = self._findings_table.selection()
         if not selected:
+            self._selected_finding = None
+            self._copy_recommendation_button.configure(state=tk.DISABLED)
+            self._safe_mitigation_button.configure(state=tk.DISABLED)
+            self._set_finding_details(_DETAIL_SELECIONE)
             return
         finding = self._finding_by_item.get(selected[0])
         if finding is None:
@@ -831,8 +879,9 @@ class LocalDashboard:
             self._safe_mitigation_button.configure(state=tk.DISABLED)
             if selected[0] == "integrity-healed":
                 self._set_finding_details(
-                    "Integrity state restored from a SHA-256-verified in-memory "
-                    "shadow baseline. No tampered bytes were retained."
+                    "Integridade restaurada a partir de uma cópia de referência "
+                    "protegida em memória, verificada por SHA-256. Nenhum byte "
+                    "adulterado foi mantido."
                 )
             return
         self._selected_finding = finding
@@ -855,8 +904,8 @@ class LocalDashboard:
             f"Próximo passo: {next_step}\n\n"
             "Detalhes técnicos para auditoria\n"
             f"Evento: {finding.event_name}\n"
-            f"Severidade: {finding.severity.upper()}\n"
-            f"MITRE ATT&CK: {finding.mitre_id or 'N/A'}\n"
+            f"Severidade: {LocalDashboard._severity_label(finding.severity)}\n"
+            f"MITRE ATT&CK: {finding.mitre_id or 'Não se aplica'}\n"
             "Evidência observada\n"
             f"{json.dumps(finding.evidence, ensure_ascii=False, sort_keys=True)}\n\n"
             f"Detalhes do Risco (Red Team)\n{finding.vetor_ataque}\n\n"
@@ -878,28 +927,34 @@ class LocalDashboard:
         new_events = events[self._rendered_event_count :]
         if not new_events:
             return
-        self._events.configure(state=tk.NORMAL)
         for timestamp, event_name in new_events:
             severity = self._severity_for_event(event_name)
             display_name = {
-                "deception.canary.triggered": "ALERTA CANARY TOKEN",
-                "deception.ghost_port.engaged": "ALERTA GHOST PORT SINTÉTICA",
+                "deception.canary.triggered": "ALERTA DE ARQUIVO-ISCA",
+                "deception.ghost_port.engaged": "ALERTA DE ISCA SINTÉTICA",
                 "evasion.obfuscation.detected": "OFUSCAÇÃO DETECTADA",
                 "persistence.point.detected": "PERSISTÊNCIA SINTÉTICA DETECTADA",
-                "security.state.healed": "STATUS: RESTORED / HEALED",
-                "external.scanner.unavailable": "AVISO: FERRAMENTA EXTERNA AUSENTE",
+                "security.state.healed": "STATUS: RESTAURADO / CORRIGIDO",
+                "external.scanner.unavailable": "AVISO: FERRAMENTA DE VARREDURA AUSENTE",
                 "network.correlation.vulnerability_detected": (
                     "CRÍTICO: CORRELAÇÃO NMAP + TSHARK"
                 ),
             }.get(event_name, event_name)
-            self._events.insert(
-                tk.END,
-                f"{timestamp} [{severity}] {display_name}\n",
+            self._append_console_line(
+                f"{timestamp} {display_name}",
                 severity,
             )
+        self._rendered_event_count = len(events)
+
+    def _append_console_line(self, text: str, severity: str) -> None:
+        self._events.configure(state=tk.NORMAL)
+        self._events.insert(
+            tk.END,
+            f"[{self._severity_label(severity)}] {text}\n",
+            severity,
+        )
         self._events.see(tk.END)
         self._events.configure(state=tk.DISABLED)
-        self._rendered_event_count = len(events)
 
     def _finish_worker(self) -> None:
         self._worker = None
@@ -939,7 +994,8 @@ def launch_gui(*, root_factory: Callable[[], tk.Tk] = tk.Tk) -> int:
         root.mainloop()
     except tk.TclError as error:
         raise RuntimeError(
-            "The local GUI could not start; verify that a desktop display is available."
+            "A interface gráfica local não pôde iniciar; verifique se há uma área "
+            "de trabalho disponível."
         ) from error
     return 0
 

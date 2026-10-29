@@ -1,4 +1,5 @@
 import contextlib
+import importlib.util
 import io
 import unittest
 from unittest.mock import patch
@@ -15,6 +16,12 @@ from sarr_core.core.run_context import RunContext as PublicRunContext
 
 
 class EngineTransitionTests(unittest.TestCase):
+    def test_public_engine_states_match_run_state(self) -> None:
+        self.assertEqual(
+            {state.value for state in EngineState},
+            {state.value for state in RunState},
+        )
+
     def test_public_engine_follows_permitted_lifecycle(self) -> None:
         engine = Engine()
         self.assertEqual(engine.state, EngineState.IDLE)
@@ -62,6 +69,27 @@ class EngineTransitionTests(unittest.TestCase):
         self.assertEqual(engine.state, EngineState.FAILED)
         self.assertIsNotNone(engine.ended_at_utc)
 
+    def test_public_engine_transitions_to_completed_and_exposes_end_time(self) -> None:
+        engine = Engine()
+        for state in (
+            EngineState.VALIDATING,
+            EngineState.READY,
+            EngineState.RUNNING,
+            EngineState.COMPLETED,
+        ):
+            engine.transition_to(state)
+
+        self.assertEqual(engine.state, EngineState.COMPLETED)
+        self.assertIsNotNone(engine.ended_at_utc)
+
+    def test_public_engine_can_revalidate_after_blocked_state(self) -> None:
+        engine = Engine()
+        engine.transition_to(EngineState.VALIDATING)
+        engine.transition_to(EngineState.BLOCKED)
+        self.assertEqual(engine.state, EngineState.BLOCKED)
+        engine.transition_to(EngineState.VALIDATING)
+        self.assertEqual(engine.state, EngineState.VALIDATING)
+
     def test_valid_transitions_follow_validation_and_ready_gates(self) -> None:
         machine = RunStateMachine(RunContext.create("test"))
 
@@ -95,6 +123,10 @@ class EngineTransitionTests(unittest.TestCase):
         self.assertIn("Estado da execução: IDLE", output.getvalue())
         self.assertIn("Kill-switch: inativo", output.getvalue())
 
+    @unittest.skipUnless(
+        importlib.util.find_spec("tkinter") is not None,
+        "Tkinter is not installed",
+    )
     def test_gui_command_dispatches_to_gui_entry_point(self) -> None:
         with patch("sarr_core.gui.launch_gui", return_value=0) as launch:
             self.assertEqual(main(["--gui"]), 0)

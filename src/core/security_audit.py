@@ -24,8 +24,8 @@ _SUSPICIOUS_COMMAND = re.compile(
     re.IGNORECASE,
 )
 _PERSISTENCE_MECHANISMS = {
-    "scheduled_task": ("T1053.005", "Scheduled Task"),
-    "autorun": ("T1547.001", "Registry Run Keys / Startup Folder"),
+    "scheduled_task": ("T1053.005", "tarefa agendada"),
+    "autorun": ("T1547.001", "chave de execução automática / pasta Inicializar"),
 }
 _CANARY_RELATIVE_PATH = "config/canary_credentials.json"
 
@@ -230,10 +230,10 @@ class SecurityAudit:
                 event_name="security.port.exposed",
                 severity="critical",
                 summary=(
-                    f"Unapproved service {evidence.service!r} is listed on "
+                    f"O serviço não autorizado {evidence.service!r} está listado em "
                     f"{evidence.host}:{evidence.port}"
                     + (
-                        " without authentication."
+                        " sem autenticação."
                         if evidence.authentication == "absent"
                         else "."
                     )
@@ -284,7 +284,7 @@ class SecurityAudit:
             finding = self._finding(
                 event_name="deception.ghost_port.engaged",
                 severity="critical",
-                summary="Synthetic request engaged an unauthorized ghost-port fixture.",
+                summary="Uma requisição sintética acionou um cenário de porta-isca não autorizada.",
                 evidence={
                     "host": attempt.host,
                     "port": attempt.port,
@@ -353,7 +353,7 @@ class SecurityAudit:
                 finding = self._finding(
                     event_name="integrity.baseline.missing",
                     severity="critical",
-                    summary=f"No reviewed SHA-256 baseline exists for {relative_path}.",
+                    summary=f"Não existe referência SHA-256 revisada para {relative_path}.",
                     evidence={"path": relative_path},
                     vetor_ataque=(
                         "Sem uma baseline confiável, uma alteração no arquivo não "
@@ -381,7 +381,7 @@ class SecurityAudit:
                 finding = SecurityFinding(
                     event_name="integrity.audit.failed",
                     severity="critical",
-                    summary="Project file could not be read for integrity verification.",
+                    summary="Não foi possível ler o arquivo do projeto para verificar sua integridade.",
                     evidence={
                         "path": relative_path,
                         "error_type": type(error).__name__,
@@ -416,7 +416,7 @@ class SecurityAudit:
             finding = SecurityFinding(
                 event_name="integrity.hash.mismatch",
                 severity="critical",
-                summary="Project file hash differs from the supplied baseline.",
+                summary="O hash do arquivo do projeto diverge da referência fornecida.",
                 evidence={
                     "path": relative_path,
                     "expected_sha256": evidence.expected_sha256,
@@ -467,7 +467,7 @@ class SecurityAudit:
                 finding = self._finding(
                     event_name="security.permission.audit_unavailable",
                     severity="warning",
-                    summary="Windows ACL permissions were not verified.",
+                    summary="As permissões ACL do Windows não foram verificadas.",
                     evidence={"path": relative_path, "platform": "windows"},
                     vetor_ataque=(
                         "ACLs não verificadas significam que esta auditoria não pode "
@@ -494,7 +494,7 @@ class SecurityAudit:
                 finding = self._finding(
                     event_name="security.permission.audit_failed",
                     severity="critical",
-                    summary="File permissions could not be inspected.",
+                    summary="Não foi possível inspecionar as permissões do arquivo.",
                     evidence={
                         "path": relative_path,
                         "error_type": type(error).__name__,
@@ -538,7 +538,7 @@ class SecurityAudit:
             finding = SecurityFinding(
                 event_name="auth.brute_force.detected",
                 severity="high",
-                summary="Simulated authentication-failure sequence exceeded threshold.",
+                summary="A sequência sintética de falhas de autenticação excedeu o limite.",
                 evidence={
                     "failure_count": simulated_auth_failures,
                     "threshold": self.AUTH_FAILURE_THRESHOLD,
@@ -570,7 +570,7 @@ class SecurityAudit:
             finding = self._finding(
                 event_name="evasion.obfuscation.detected",
                 severity="critical",
-                summary="Synthetic obfuscation indicators were detected.",
+                summary="Foram detectados indicadores sintéticos de ofuscação.",
                 evidence={
                     "mitre_id": "T1027",
                     "base64_sample_count": detected_base64,
@@ -607,7 +607,7 @@ class SecurityAudit:
             finding = self._finding(
                 event_name="persistence.point.detected",
                 severity="critical",
-                summary=f"Unauthorized synthetic {technique} indicator was detected.",
+                summary=f"Foi detectado um indicador sintético não autorizado de {technique}.",
                 evidence={
                     "mechanism": evidence.mechanism,
                     "fixture_name": evidence.name,
@@ -660,10 +660,11 @@ class SecurityAudit:
             "local_file_audit",
         }:
             raise ValueError("Unsupported canary signal source.")
+        reason_label = "acessado" if reason == "accessed" else "alterado"
         finding = self._finding(
             event_name="deception.canary.triggered",
             severity="critical",
-            summary=f"Canary decoy file was {reason}.",
+            summary=f"O arquivo-isca canário foi {reason_label}.",
             evidence={
                 "path": _CANARY_RELATIVE_PATH,
                 "reason": reason,
@@ -735,7 +736,7 @@ class SecurityAudit:
             finding = self._finding(
                 event_name="security.permission.excessive",
                 severity="critical",
-                summary="File is writable by group or all users.",
+                summary="O arquivo permite escrita por grupo ou por todos os usuários.",
                 evidence=evidence,
                 vetor_ataque=(
                     "Um usuário com a permissão de escrita pode adulterar a "
