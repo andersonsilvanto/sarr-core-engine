@@ -519,7 +519,7 @@ class LocalDashboard:
         }:
             path = evidence.get("path")
             if isinstance(path, str):
-                impact = impact.rstrip(".") + f" Arquivo: {path}."
+                impact = impact.rstrip(".") + f". Arquivo: {path}."
         return title, impact, next_step
 
     @staticmethod
@@ -638,7 +638,7 @@ class LocalDashboard:
         if not guidance:
             lines.append("Ferramentas encontradas. Nmap permanece restrito a 127.0.0.1.")
         message = "\n".join(lines)
-        self._message.set(message)
+        self._message.set("Verificação de ferramentas concluída.")
         messagebox.showinfo(
             "Ferramentas de varredura (Nmap + Tshark)",
             message,
