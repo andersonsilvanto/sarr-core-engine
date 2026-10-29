@@ -1,5 +1,10 @@
 # SARR-Core Engine
 
+<p align="center"><img src="assets/arquitetura-real.png" alt="Arquitetura do SARR-Core Engine: interface, segurança fail-closed, núcleo, auditoria defensiva e persistência" width="100%"></p>
+<p align="center"><img src="assets/painel-soc-auditoria.png" alt="Painel SOC local do SARR-Core Engine" width="80%"></p>
+<p align="center"><img src="assets/fluxograma-arquitetura.png" alt="Fluxograma de operação do SARR-Core Engine" width="100%"></p>
+<p align="center"><a href="assets/fluxograma-arquitetura.png">Abrir o fluxograma em tamanho original</a></p>
+
 Motor local de auditoria defensiva, telemetria e resposta fail-closed. A
 interface e a simulação priorizam evidências locais ou sintéticas e não
 executam ações ofensivas.
@@ -10,10 +15,7 @@ executam ações ofensivas.
 - [Arquitetura em texto](docs/arquitetura.txt)
 - [Documento de arquitetura, casos de uso e fluxogramas](docs/arquitetura-sarr-core.pdf)
 - [Plano de implementação](docs/plano-implementacao-sarr-core.pdf)
-- [Diagrama da arquitetura](assets/Arquitetura_do_SARR-Core_Engine.png)
-- [Painel SOC](assets/painel-soc.png)
-
-![Painel SOC local](assets/painel-soc.png)
+- [Ilustração conceitual (gerada por IA, não representa o escopo real)](assets/Arquitetura_do_SARR-Core_Engine.png)
 
 ## Núcleo de orquestração
 

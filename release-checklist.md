@@ -24,7 +24,7 @@ execução fora do laboratório controlado.
   12 testes GUI e 12 testes de transição/CLI, exceto a execução normal da CLI
   que depende dos arquivos de baseline em LF.
 - [x] A documentação de apoio foi organizada em `docs/`, a captura do painel
-  está em `assets/painel-soc.png` e a cópia duplicada do PDF foi removida após
+  está em `assets/fluxograma-arquitetura.png` e a cópia duplicada do PDF foi removida após
   confirmar que os dois arquivos tinham o mesmo MD5.
 - [x] A linha de base anterior às alterações passou com 132 testes.
 - [ ] A suíte atual executou 139 testes: 8 falhas e 1 erro. Os testes de LF
