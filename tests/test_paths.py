@@ -2,11 +2,39 @@ import tempfile
 import unittest
 import warnings
 from pathlib import Path
+from unittest.mock import patch
 
-from core.paths import DataDirectoryError, resolve_data_directory
+import core.paths
+from core.paths import (
+    DataDirectoryError,
+    default_user_data_directory,
+    resolve_data_directory,
+)
 
 
 class DataDirectoryTests(unittest.TestCase):
+    def test_linux_user_data_path_uses_xdg_environment(self) -> None:
+        with patch.object(core.paths.sys, "platform", "linux"), patch.dict(
+            "os.environ",
+            {"XDG_DATA_HOME": str(Path("relative-data"))},
+            clear=True,
+        ):
+            self.assertEqual(
+                default_user_data_directory(),
+                Path("relative-data") / "sarr-core" / "data",
+            )
+
+    def test_windows_user_data_path_uses_local_app_data(self) -> None:
+        with patch.object(core.paths.sys, "platform", "win32"), patch.dict(
+            "os.environ",
+            {"LOCALAPPDATA": str(Path("local-data"))},
+            clear=True,
+        ):
+            self.assertEqual(
+                default_user_data_directory(),
+                Path("local-data") / "SARR-Core" / "data",
+            )
+
     def test_portable_flag_selects_local_data_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             app_directory = Path(temporary) / "app"

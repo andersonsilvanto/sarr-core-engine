@@ -14,4 +14,4 @@ dependencies = ["jsonschema==4.26.0"]
 where = ["src"]
 
 [tool.setuptools.data-files]
-"schemas" = ["schemas/scope.schema.json"]
+"schemas" = ["schemas/scope.schema.json", "schemas/dashboard.schema.json"]

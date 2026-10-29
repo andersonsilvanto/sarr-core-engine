@@ -1,0 +1,30 @@
+REGRAS OBRIGATÓRIAS PARA ESTA TAREFA:
+1. Mantenha total portabilidade e neutralidade de ambiente: NUNCA utilize caminhos absolutos de arquivos (ex: D:\... ou C:\...). Utilize a biblioteca `pathlib` para resolver caminhos dinamicamente a partir de `Path(__file__)`.
+2. Garanta que o módulo de interface seja totalmente desacoplado da lógica do motor, consumindo apenas as funções e classes do `sarr_core`.
+
+---
+
+CONTEXTO E OBJETIVO:
+Queremos criar a camada de visualização do SARR-Core Engine que possa ser executada localmente em qualquer sistema onde o repositório for clonado.
+
+Sua missão nesta etapa é:
+
+1. **Criar a Interface de Visualização Local (`src/sarr_core/gui.py`):**
+   - Implementar um painel visual (usando `tkinter` / `customtkinter` ou um dashboard local interativo) que exiba:
+     - O estado atual da máquina de estados (`IDLE`, `RUNNING`, `COMPLETED`, etc.).
+     - Painéis de telemetria coletada (CPU, RAM, RTT).
+     - Botões de ação para acionar o simulador e o Kill-Switch de emergência.
+   
+2. **Integração na CLI:**
+   - Adicionar o comando `--gui` ao `src/sarr_core/cli.py` para abrir o painel gráfico diretamente pelo terminal:
+     `python -m sarr_core.cli --gui`
+
+3. **Validação de Portabilidade:**
+   - Garantir que a importação e o carregamento dos metadados/dashboards em JSON leiam os arquivos da pasta `config/` ou `schemas/` de forma relativa à raiz do projeto.
+
+---
+
+ENTREGÁVEIS ESPERADOS:
+- Arquivo `src/sarr_core/gui.py` funcional.
+- Atualização do `src/sarr_core/cli.py` com a flag `--gui`.
+- Teste de execução no terminal da aplicação.

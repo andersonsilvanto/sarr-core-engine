@@ -2,27 +2,26 @@
 
 import argparse
 import json
+import os
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Sequence
 
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
+
 from core import (
-    CoreOrchestrator,
     DataDirectoryError,
     KillSwitchTriggered,
-    LocalDemoServer,
-    LocalTelemetryProbe,
     OperationalLimitExceeded,
     RunState,
-    Persistence,
     ScopeValidationError,
-    ScopeValidator,
-    TelemetryScenario,
     TelemetryUnavailable,
     resolve_data_directory,
 )
+from sarr_core.metadata import MetadataExportError, MetadataManager
+from sarr_core.simulation import LocalSimulationSession
 
 
 def _print_status() -> None:
@@ -32,68 +31,16 @@ def _print_status() -> None:
     print("Kill-switch: inativo")
 
 
-def _simulation_scope() -> dict[str, object]:
-    now = datetime.now(timezone.utc)
-    return {
-        "engagement_id": "local-cli-demo",
-        "environment": "local",
-        "mode": "simulation",
-        "valid_from_utc": (now - timedelta(seconds=1)).isoformat(),
-        "valid_until_utc": (now + timedelta(minutes=5)).isoformat(),
-        "allowed_targets": ["127.0.0.1"],
-        "allowed_modules": ["telemetry_demo"],
-        "limits": {
-            "max_duration_seconds": 60,
-            "max_rate_per_second": 2,
-            "max_concurrency": 1,
-            "max_volume_bytes": 16_384,
-            "measurement_window_seconds": 10,
-        },
-    }
-
-
 def _run_simulation() -> None:
-    data_directory = resolve_data_directory()
-    persistence = Persistence(
-        data_directory / "sarr-core.sqlite3",
-        data_directory / "audit.jsonl",
-    )
+    session = LocalSimulationSession()
     try:
-        orchestrator = CoreOrchestrator(persistence=persistence)
-        run = orchestrator.create_run("simulation")
-        with tempfile.TemporaryDirectory(prefix="sarr-core-cli-") as directory:
-            scope_path = Path(directory) / "scope.json"
-            scope_path.write_text(
-                json.dumps(_simulation_scope()),
-                encoding="utf-8",
-            )
-            orchestrator.validate_scope(
-                run.run_id,
-                str(scope_path),
-                engagement_id="local-cli-demo",
-                environment="local",
-                targets=["127.0.0.1"],
-                modules=["telemetry_demo"],
-                validator=ScopeValidator(kill_switch=orchestrator.kill_switch),
-            )
-            orchestrator.transition(run.run_id, RunState.RUNNING)
-            with LocalDemoServer(
-                TelemetryScenario.NORMAL_LATENCY,
-                max_requests=1,
-            ) as server:
-                probe = LocalTelemetryProbe(
-                    port=server.port,
-                    run_id=run.run_id,
-                    limits=orchestrator.get_operational_limits(run.run_id),
-                    kill_switch=orchestrator.kill_switch,
-                    event_bus=orchestrator.events,
-                )
-                sample = probe.sample()
-            orchestrator.record_module_execution(run.run_id, "telemetry_demo")
-            orchestrator.transition(run.run_id, RunState.COMPLETED)
+        snapshot = session.run()
+        sample = snapshot.telemetry
+        if sample is None:
+            raise RuntimeError("Simulation completed without a telemetry sample.")
         print("SARR-Core Engine - simulação local")
-        print(f"run_id: {run.run_id}")
-        print(f"Dados: {data_directory}")
+        print(f"run_id: {snapshot.run_id}")
+        print(f"Dados: {session.data_directory}")
         print("Destino: 127.0.0.1")
         print(
             "Telemetria: "
@@ -102,12 +49,64 @@ def _run_simulation() -> None:
             f"RTT={sample.rtt_ms:.2f}ms "
             f"drop={sample.drop_rate:.4f}"
         )
-        for event in orchestrator.events.history:
-            timestamp = event.timestamp_utc.isoformat().replace("+00:00", "Z")
-            print(f"{timestamp} {event.name}")
-        print(f"Estado final: {orchestrator.get_state(run.run_id).value}")
+        for timestamp, event_name in session.event_log():
+            print(f"{timestamp} {event_name}")
+        print(f"Estado final: {snapshot.state.value}")
     finally:
-        persistence.close()
+        session.close()
+
+
+def _export_metadata() -> Path:
+    data_directory = resolve_data_directory()
+    output_path = data_directory / "exports" / "metadata-latest.json"
+    exported_path = MetadataManager(
+        data_directory / "sarr-core.sqlite3"
+    ).export_latest_run(output_path)
+    print(f"Metadata da última execução exportado: {exported_path}")
+    return exported_path
+
+
+def _export_dashboard() -> Path:
+    project_root = Path(__file__).resolve().parents[2]
+    source_schema = project_root / "schemas" / "dashboard.schema.json"
+    if not source_schema.is_file():
+        source_schema = Path(sys.prefix) / "schemas" / "dashboard.schema.json"
+    if not source_schema.is_file():
+        raise FileNotFoundError(f"Dashboard schema not found: {source_schema}")
+
+    schema_document = json.loads(source_schema.read_text(encoding="utf-8"))
+    if not isinstance(schema_document, dict):
+        raise ValueError("Dashboard schema must be a JSON object.")
+    Draft202012Validator.check_schema(schema_document)
+    output_path = project_root / "config" / "dashboard.schema.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            dir=output_path.parent,
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(file_descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(
+                schema_document,
+                stream,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+                allow_nan=False,
+            )
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_path, output_path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+    print(f"Schema JSON do dashboard exportado: {output_path}")
+    return output_path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -115,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m sarr_core",
         description="Comandos locais de operação do SARR-Core Engine.",
     )
-    commands = parser.add_mutually_exclusive_group(required=True)
+    commands = parser.add_mutually_exclusive_group()
     commands.add_argument(
         "--status",
         action="store_true",
@@ -126,6 +125,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="executa uma simulação de telemetria limitada a 127.0.0.1",
     )
+    commands.add_argument(
+        "--gui",
+        action="store_true",
+        help="abre o painel gráfico local da simulação",
+    )
+    parser.add_argument(
+        "--export-metadata",
+        action="store_true",
+        help="exporta os metadados da última execução persistida em JSON",
+    )
+    parser.add_argument(
+        "--export-dashboard",
+        action="store_true",
+        help="exporta o schema JSON do dashboard para config/",
+    )
     return parser
 
 
@@ -133,18 +147,37 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.status:
         _print_status()
-        return 0
-
     try:
-        _run_simulation()
+        if arguments.run_sim:
+            _run_simulation()
+        if arguments.export_metadata:
+            _export_metadata()
+        if arguments.export_dashboard:
+            _export_dashboard()
+        if arguments.gui:
+            from sarr_core.gui import launch_gui
+
+            return launch_gui()
+        if not (
+            arguments.status
+            or arguments.run_sim
+            or arguments.gui
+            or arguments.export_metadata
+            or arguments.export_dashboard
+        ):
+            _print_status()
     except (
         DataDirectoryError,
         KillSwitchTriggered,
+        MetadataExportError,
         OperationalLimitExceeded,
         ScopeValidationError,
         TelemetryUnavailable,
+        ImportError,
         OSError,
         RuntimeError,
+        SchemaError,
+        ValueError,
     ) as error:
         print(f"Execução bloqueada/falhou: {error}", file=sys.stderr)
         return 1

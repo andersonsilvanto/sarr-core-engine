@@ -19,9 +19,17 @@ def application_directory() -> Path:
 
 def default_user_data_directory() -> Path:
     local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
+    if sys.platform == "win32" and local_app_data:
         return Path(local_app_data) / "SARR-Core" / "data"
-    return Path.home() / "AppData" / "Local" / "SARR-Core" / "data"
+    if sys.platform == "win32":
+        return Path.home() / "AppData" / "Local" / "SARR-Core" / "data"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "SARR-Core" / "data"
+
+    xdg_data_home = os.environ.get("XDG_DATA_HOME")
+    if xdg_data_home:
+        return Path(xdg_data_home) / "sarr-core" / "data"
+    return Path.home() / ".local" / "share" / "sarr-core" / "data"
 
 
 def _ensure_writable_directory(directory: Path) -> None:

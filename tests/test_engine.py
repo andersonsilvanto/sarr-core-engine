@@ -1,6 +1,7 @@
 import contextlib
 import io
 import unittest
+from unittest.mock import patch
 
 from core import (
     InvalidStateTransitionError,
@@ -93,6 +94,11 @@ class EngineTransitionTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn("Estado da execução: IDLE", output.getvalue())
         self.assertIn("Kill-switch: inativo", output.getvalue())
+
+    def test_gui_command_dispatches_to_gui_entry_point(self) -> None:
+        with patch("sarr_core.gui.launch_gui", return_value=0) as launch:
+            self.assertEqual(main(["--gui"]), 0)
+        launch.assert_called_once_with()
 
     def test_simulation_command_completes_loopback_execution(self) -> None:
         output = io.StringIO()

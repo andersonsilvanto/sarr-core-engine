@@ -1,0 +1,14 @@
+# Skill: GitHub Repository Inspector & Refactor (SARR-Core Engine)
+
+## Objetivo
+Permitir que o Claude inspecione, analise e refatore o código do repositório `andersonsilvanto/sarr-core-engine` diretamente via GitHub/Git local de forma cirúrgica, otimizando o uso de tokens de contexto.
+
+## Ferramentas de Inspeção
+- Para listar a estrutura do projeto: `git ls-files` ou `gh repo view andersonsilvanto/sarr-core-engine --tree`
+- Para ler um arquivo específico: `cat <caminho_do_arquivo>` ou `gh api repos/andersonsilvanto/sarr-core-engine/contents/<caminho>`
+- Para verificar o último histórico de commits: `git log -n 5 --oneline`
+
+## Diretrizes do Projeto
+1. Respeitar o padrão Fail-Closed e arquitetura defensiva do SARR-Core Engine.
+2. Manter modularidade estrita entre `core/`, `metadata/`, `dashboards/` e `cli.py`.
+3. Não reescrever arquivos inteiros se apenas pequenas funções precisarem de ajuste. Retornar diffs ou modificações pontuais.

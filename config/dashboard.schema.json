@@ -1,0 +1,71 @@
+{
+  "$id": "https://sarr-core-engine.local/schemas/dashboard.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "panels": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "timeseries",
+              "stat",
+              "table"
+            ]
+          },
+          "metrics": {
+            "items": {
+              "enum": [
+                "cpu_percent",
+                "ram_percent",
+                "rtt_ms",
+                "drop_rate",
+                "status_code",
+                "duration_ms",
+                "volume_bytes"
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "metrics"
+        ],
+        "type": "object"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "title": {
+      "maxLength": 120,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "title",
+    "panels"
+  ],
+  "title": "SARR-Core local dashboard configuration",
+  "type": "object"
+}

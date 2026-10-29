@@ -106,10 +106,34 @@ virtual:
 ```bat
 .venv\Scripts\python.exe -m sarr_core --status
 .venv\Scripts\python.exe -m sarr_core --run-sim
+.venv\Scripts\python.exe -m sarr_core.cli --gui
 ```
 
 Também é possível chamar o módulo da CLI diretamente com
 `.venv\Scripts\python.exe -m sarr_core.cli --status` ou `--run-sim`.
+
+No Linux/macOS, o equivalente é
+`.venv/bin/python -m sarr_core.cli --gui`. O diretório persistente usa
+`LOCALAPPDATA` no Windows e segue `XDG_DATA_HOME` (ou `~/.local/share`) no
+Linux; no macOS usa `~/Library/Application Support`.
+
+`--gui` abre o painel Tk local com estado, CPU/RAM/RTT, eventos, início da
+simulação de loopback e um botão de kill-switch. O módulo gráfico importa a
+fachada de aplicação `sarr_core.simulation`; ele não manipula diretamente a
+máquina de estados ou os repositórios do motor.
+
+Para exportar o JSON da última execução persistida ou o schema do dashboard:
+
+```bat
+.venv\Scripts\python.exe -m sarr_core.cli --export-metadata
+.venv\Scripts\python.exe -m sarr_core.cli --export-dashboard
+```
+
+Os metadados são exportados somente se houver uma execução no banco local, em
+`data/exports/metadata-latest.json` (ou no diretório de dados resolvido). O
+schema versionado em `schemas/dashboard.schema.json` é copiado para
+`config/dashboard.schema.json`. As flags de exportação podem ser combinadas
+com `--status` ou `--run-sim`.
 
 A máquina de estados também está disponível pelo namespace público
 `sarr_core.core` (`Engine`, `EngineState` e `RunContext`). Ela aplica o mesmo

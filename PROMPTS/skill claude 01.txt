@@ -1,0 +1,19 @@
+Assim que este acesso/sessão estiver disponível, execute imediatamente a tarefa a seguir:
+
+Olá, Claude! Vamos trabalhar no aprimoramento do projeto **SARR-Core Engine**.
+
+O projeto é um motor defensivo, de telemetria e auditoria em Python, com arquitetura Fail-Closed e gestão de metadados/dashboards portáteis em JSON.
+
+Seu objetivo nesta sessão é analisar nosso repositório remoto no GitHub, entender a estrutura atual e propor refatorações e melhorias de performance e resiliência.
+
+### INSTRUÇÕES DE LEITURA E ANÁLISE:
+1. Inspecione o repositório público no GitHub: `https://github.com/andersonsilvanto/sarr-core-engine`
+2. Analise a estrutura principal de código em `src/sarr_core/` (Core Engine, Máquina de Estados, MetadataManager e CLI).
+3. Avalie a suíte de testes em `tests/` e o arquivo `pyproject.toml`.
+
+### O QUE VOCÊ DEVE APRIMORAR:
+- **Resiliência Fail-Closed:** Verifique se existem brechas onde exceções não tratadas na máquina de estados possam deixar o motor em um estado inconsistente.
+- **Otimização do Metadata/Dashboard Manager:** Sugira melhorias na validação de esquemas JSON de dashboards (estilo Grafana) para garantir que arquivos corrompidos sejam rejeitados com segurança.
+- **CLI & Usabilidade:** Refine os comandos de linha de comando (`cli.py`) para melhorar a experiência no terminal Windows/Linux e no modo TUI/Console.
+
+Forneça um relatório conciso com as melhorias identificadas e os blocos de código exatos que devemos atualizar no nosso ambiente local.
