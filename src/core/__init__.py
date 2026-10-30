@@ -56,9 +56,12 @@ from core.wireless_inventory import (
     InventoryAuthorization,
     InventoryImportError,
     LocalAdapterUnavailableError,
+    WIFI_INVENTORY_EVENT,
     WifiAccessPoint,
     WifiInventory,
     WifiInventoryAdapter,
+    publish_wifi_inventory,
+    run_wifi_inventory_module,
 )
 
 __all__ = [
@@ -116,6 +119,9 @@ __all__ = [
     "WifiAccessPoint",
     "WifiInventory",
     "WifiInventoryAdapter",
+    "WIFI_INVENTORY_EVENT",
+    "publish_wifi_inventory",
+    "run_wifi_inventory_module",
     "application_directory",
     "default_user_data_directory",
     "resolve_data_directory",

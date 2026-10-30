@@ -253,6 +253,16 @@ _AUDIT_FIELDS: dict[str, tuple[str, ...]] = {
         "mitre_id",
         "acao_bloqueio",
     ),
+    "network.wifi.inventory_collected": (
+        "approval_reference",
+        "approved_by",
+        "activity",
+        "source",
+        "rssi_estimated",
+        "access_point_count",
+        "discarded_count",
+        "access_points",
+    ),
     "network.correlation.vulnerability_detected": (
         "host",
         "port",

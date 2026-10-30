@@ -314,12 +314,35 @@ rejeitam inventários expirados, destinos fora da allowlist, campos extras,
 chaves JSON duplicadas e propriedades GATT de escrita. Valores de
 características/descriptors não são aceitos.
 
-Estes adaptadores **não enumeram rádios nem fazem operações ao vivo**: não
-escaneiam, associam, desautenticam, capturam credenciais, pareiam, leem
-características GATT de dispositivos, injetam pacotes ou transmitem. A chamada
-`collect_from_os()` falha explicitamente como stub não suportado. Somente os
-conjuntos de dados sintéticos em `tests/fixtures/` acompanham os testes; eles usam
-identificadores localmente administrados e nomes marcados como sintéticos.
+Os adaptadores não associam, desautenticam, capturam credenciais, pareiam, leem
+características GATT de dispositivos, injetam pacotes nem transmitem.
+`BluetoothGattInventoryAdapter.collect_from_os()` continua falhando como stub
+não suportado.
+
+`WifiInventoryAdapter.collect_from_os(authorization)` lê somente a lista Wi-Fi
+que o sistema operacional já tem em cache. No Linux usa
+`nmcli ... device wifi list --rescan no`, e no Windows usa
+`netsh wlan show networks mode=bssid`. Não força rescan, não usa modo monitor
+nem `iwlist`. A chamada exige um `InventoryAuthorization` já carregado (o
+mesmo objeto que `import_file()` devolve), revalidado no momento da coleta.
+Redes fora da allowlist e SSIDs ocultos são descartados antes de qualquer
+registro ser montado. O resultado é o mesmo `WifiInventory` produzido pelo
+import. `rssi_dbm` é estimado a partir do sinal em % (`pct/2 − 100`).
+
+Para rodar como módulo do motor, registre o adapter em `engine.modules` com o
+nome `wifi_passive_inventory` e chame
+`run_wifi_inventory_module(engine, run_id, authorization)`. Esse mesmo nome
+precisa estar em `allowed_modules` do escopo validado, e a allowlist da
+autorização precisa estar contida em `allowed_targets`. A função chama
+`engine.record_module_execution` antes de qualquer comando do SO, o que exige
+execução `RUNNING`, escopo válido e kill-switch desarmado. O resultado é
+publicado no EventBus como `network.wifi.inventory_collected` e entra
+automaticamente no SQLite e na auditoria JSONL. Inventários importados podem
+usar o mesmo evento via `publish_wifi_inventory(..., source="file_import")`.
+
+Somente os conjuntos de dados sintéticos em `tests/fixtures/` acompanham os
+testes; eles usam identificadores localmente administrados e nomes marcados
+como sintéticos.
 
 O registro de autorização importado é evidência documental declarada no
 arquivo, não uma assinatura criptográfica verificada pelo motor. Antes de
