@@ -53,6 +53,7 @@ _NETSH_BSSID_LINE = re.compile(r"^\s+BSSID\s+\d+\s*:\s*(\S+)\s*$")
 _NETSH_FIELD_LINE = re.compile(r"^\s+([^:]+?)\s*:\s*(.*?)\s*$")
 
 WIFI_INVENTORY_EVENT = "network.wifi.inventory_collected"
+BLE_INVENTORY_EVENT = "network.ble.inventory_collected"
 
 CommandRunner = Callable[[Sequence[str]], str]
 
@@ -298,6 +299,19 @@ class _AuthorizedInventoryImporter:
         ):
             raise ValueError("clock must return a timezone-aware UTC datetime.")
         return now.astimezone(timezone.utc)
+
+    def load_authorization(self, source: str | Path) -> InventoryAuthorization:
+        """Load only the authorization record from an inventory-format file.
+
+        Accepts the same JSON document as ``import_file``; the ``devices``
+        array is not interpreted, so it may be empty.
+        """
+        document = self._read_document(source)
+        if document["schema_version"] != 1:
+            raise InventoryImportError("Unsupported inventory schema_version.")
+        if not isinstance(document["devices"], list):
+            raise InventoryImportError("Inventory devices must be an array.")
+        return self._parse_authorization(document["authorization"], targets=set())
 
     def assert_authorization_current(
         self, authorization: InventoryAuthorization | None
@@ -784,6 +798,70 @@ def publish_wifi_inventory(
     return event
 
 
+def publish_ble_inventory(
+    event_bus: EventBus,
+    run_id: UUID,
+    inventory: BleGattInventory,
+) -> Event:
+    """Publish a read-only BLE GATT inventory on the EventBus."""
+    authorization = inventory.authorization
+    event = Event(
+        run_id=run_id,
+        name=BLE_INVENTORY_EVENT,
+        payload={
+            "approval_reference": authorization.reference,
+            "approved_by": authorization.approved_by,
+            "activity": authorization.activity,
+            "source": "file_import",
+            "device_count": len(inventory.devices),
+            "devices": tuple(
+                {
+                    "address": device.address,
+                    "name": device.name,
+                    "observed_at_utc": device.observed_at_utc.isoformat().replace(
+                        "+00:00", "Z"
+                    ),
+                    "services": tuple(
+                        {
+                            "uuid": service.uuid,
+                            "characteristics": tuple(
+                                {
+                                    "uuid": characteristic.uuid,
+                                    "properties": characteristic.properties,
+                                }
+                                for characteristic in service.characteristics
+                            ),
+                        }
+                        for service in device.services
+                    ),
+                }
+                for device in inventory.devices
+            ),
+        },
+    )
+    event_bus.publish(event)
+    return event
+
+
+def _require_validated_scope(orchestrator: "CoreOrchestrator", run_id: UUID):
+    try:
+        return orchestrator.get_validated_scope(run_id)
+    except KeyError as error:
+        raise ScopeValidationError(
+            "Wireless inventory requires a validated scope."
+        ) from error
+
+
+def _assert_allowlist_within_scope(
+    authorization: InventoryAuthorization, scope: object
+) -> None:
+    scope_targets = {target.lower() for target in scope.allowed_targets}  # type: ignore[attr-defined]
+    if not authorization.allowed_targets <= scope_targets:
+        raise ScopeValidationError(
+            "Authorization allowlist exceeds the validated scope targets."
+        )
+
+
 def run_wifi_inventory_module(
     orchestrator: "CoreOrchestrator",
     run_id: UUID,
@@ -800,18 +878,9 @@ def run_wifi_inventory_module(
     adapter = orchestrator.modules.get(WifiInventoryAdapter.ACTIVITY)
     if not isinstance(adapter, WifiInventoryAdapter):
         raise TypeError("Registered Wi-Fi module must be a WifiInventoryAdapter.")
-    try:
-        scope = orchestrator.get_validated_scope(run_id)
-    except KeyError as error:
-        raise ScopeValidationError(
-            "Wi-Fi inventory requires a validated scope."
-        ) from error
+    scope = _require_validated_scope(orchestrator, run_id)
     adapter.assert_authorization_current(authorization)
-    scope_targets = {target.lower() for target in scope.allowed_targets}
-    if not authorization.allowed_targets <= scope_targets:
-        raise ScopeValidationError(
-            "Authorization allowlist exceeds the validated scope targets."
-        )
+    _assert_allowlist_within_scope(authorization, scope)
     orchestrator.record_module_execution(run_id, WifiInventoryAdapter.ACTIVITY)
     with orchestrator.get_operational_limits(run_id).begin_operation():
         inventory, discarded_count = adapter._collect_from_os(authorization)
@@ -823,4 +892,39 @@ def run_wifi_inventory_module(
         source="os_passive",
         discarded_count=discarded_count,
     )
+    return inventory
+
+
+def run_inventory_import_module(
+    orchestrator: "CoreOrchestrator",
+    run_id: UUID,
+    module_name: str,
+    source: str | Path,
+) -> WifiInventory | BleGattInventory:
+    """Import an authorized inventory file through the same scope gate.
+
+    ``module_name`` is the adapter ``ACTIVITY`` registered in
+    ``orchestrator.modules``. Nothing is published unless the file is valid,
+    its allowlist is within the scope targets and ``record_module_execution``
+    accepts the module.
+    """
+    adapter = orchestrator.modules.get(module_name)
+    if (
+        not isinstance(adapter, (WifiInventoryAdapter, BluetoothGattInventoryAdapter))
+        or adapter.ACTIVITY != module_name
+    ):
+        raise TypeError(f"Registered module {module_name!r} is not an inventory adapter.")
+    scope = _require_validated_scope(orchestrator, run_id)
+    orchestrator.kill_switch.assert_clear()
+    with orchestrator.get_operational_limits(run_id).begin_operation():
+        inventory = adapter.import_file(source)
+    _assert_allowlist_within_scope(inventory.authorization, scope)
+    orchestrator.record_module_execution(run_id, module_name)
+    orchestrator.kill_switch.assert_clear()
+    if isinstance(inventory, WifiInventory):
+        publish_wifi_inventory(
+            orchestrator.events, run_id, inventory, source="file_import"
+        )
+    else:
+        publish_ble_inventory(orchestrator.events, run_id, inventory)
     return inventory

@@ -1,6 +1,7 @@
 """Safe command-line entry points for the local SARR-Core engine."""
 
 import argparse
+import functools
 import json
 import os
 import sys
@@ -34,12 +35,27 @@ def _print_status() -> None:
     print("Kill-switch: inativo")
 
 
+def _wireless_options(arguments: argparse.Namespace) -> dict[str, Path]:
+    options = {
+        "wireless_scope": arguments.wireless_scope,
+        "wifi_authorization": arguments.wifi_authorization,
+        "wifi_inventory": arguments.wifi_inventory,
+        "ble_inventory": arguments.ble_inventory,
+    }
+    return {name: value for name, value in options.items() if value is not None}
+
+
 def _run_simulation(
     scenario: SecurityScenario,
     *,
     tshark_capture: Path | None = None,
+    wireless_options: dict[str, Path] | None = None,
 ) -> int:
-    session = LocalSimulationSession(scenario, tshark_capture=tshark_capture)
+    session = LocalSimulationSession(
+        scenario,
+        tshark_capture=tshark_capture,
+        **(wireless_options or {}),
+    )
     try:
         snapshot = session.run()
         print("SARR-Core Engine - auditoria defensiva local")
@@ -66,6 +82,20 @@ def _run_simulation(
             print(f"  Vetor Red Team: {finding.vetor_ataque}")
             print(f"  Remediação Blue Team: {finding.remediacao}")
             print(f"  Bloqueio recomendado: {finding.acao_bloqueio}")
+        if snapshot.wifi_inventory is not None:
+            estimated = " (estimado)" if snapshot.wifi_source == "os_passive" else ""
+            for access_point in snapshot.wifi_inventory.access_points:
+                print(
+                    f"Wi-Fi [{access_point.security}] {access_point.ssid} "
+                    f"({access_point.bssid}) canal {access_point.channel} "
+                    f"{access_point.rssi_dbm} dBm{estimated}"
+                )
+        if snapshot.ble_inventory is not None:
+            for device in snapshot.ble_inventory.devices:
+                print(
+                    f"BLE {device.name} ({device.address}) "
+                    f"{len(device.services)} serviço(s), somente leitura"
+                )
         for timestamp, event_name in session.event_log():
             print(f"{timestamp} {event_name}")
         print(f"Estado final: {snapshot.state.value}")
@@ -198,6 +228,36 @@ def build_parser() -> argparse.ArgumentParser:
             "captura ao vivo não é suportada"
         ),
     )
+    wireless = parser.add_argument_group(
+        "inventário sem fio (exige escopo e autorização do operador)"
+    )
+    wireless.add_argument(
+        "--wireless-scope",
+        type=Path,
+        help=(
+            "escopo do operador (schemas/scope.schema.json, mode "
+            "'wireless_inventory') que autoriza os módulos Wi-Fi/BLE"
+        ),
+    )
+    wifi_sources = wireless.add_mutually_exclusive_group()
+    wifi_sources.add_argument(
+        "--wifi-authorization",
+        type=Path,
+        help=(
+            "registro de autorização no formato do JSON de inventário; coleta "
+            "passiva do cache Wi-Fi do SO (nmcli --rescan no / netsh)"
+        ),
+    )
+    wifi_sources.add_argument(
+        "--wifi-inventory",
+        type=Path,
+        help="importa um inventário Wi-Fi JSON pré-autorizado",
+    )
+    wireless.add_argument(
+        "--ble-inventory",
+        type=Path,
+        help="importa um inventário BLE GATT JSON pré-autorizado (somente leitura)",
+    )
     return parser
 
 
@@ -206,6 +266,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     if arguments.tshark_capture is not None and not arguments.run_sim:
         parser.error("--tshark-capture requires --run-sim")
+    wireless_options = _wireless_options(arguments)
+    if wireless_options and not (arguments.run_sim or arguments.gui):
+        parser.error("wireless inventory options require --run-sim or --gui")
+    if wireless_options and "wireless_scope" not in wireless_options:
+        parser.error("wireless inventory options require --wireless-scope")
+    if list(wireless_options) == ["wireless_scope"]:
+        parser.error(
+            "--wireless-scope requires --wifi-authorization, --wifi-inventory "
+            "or --ble-inventory"
+        )
     if arguments.status:
         _print_status()
     try:
@@ -213,6 +283,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return_code = _run_simulation(
                 SecurityScenario(arguments.scenario),
                 tshark_capture=arguments.tshark_capture,
+                wireless_options=wireless_options,
             )
         else:
             return_code = 0
@@ -225,7 +296,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if arguments.gui:
             from sarr_core.gui import launch_gui
 
-            return launch_gui()
+            if not wireless_options:
+                return launch_gui()
+            return launch_gui(
+                session_factory=functools.partial(
+                    LocalSimulationSession, **wireless_options
+                )
+            )
         if not (
             arguments.status
             or arguments.run_sim

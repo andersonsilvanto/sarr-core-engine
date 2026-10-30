@@ -4,7 +4,7 @@ import json
 import queue
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, font, messagebox, ttk
 from typing import Callable
 
 from core.security_audit import SecurityFinding
@@ -152,12 +152,13 @@ class LocalDashboard:
         self._rendered_event_count = 0
         self._rendered_findings: tuple[SecurityFinding, ...] = ()
         self._rendered_healed_paths: tuple[str, ...] = ()
+        self._rendered_wireless: tuple[object, ...] = (None, None)
         self._finding_by_item: dict[str, SecurityFinding] = {}
         self._selected_finding: SecurityFinding | None = None
         self._messages: queue.Queue[tuple[str, object]] = queue.Queue()
 
         root.title("SARR-Core Engine — SOC local")
-        root.minsize(860, 620)
+        root.minsize(860, 720)
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         container = ttk.Frame(root, padding=16)
@@ -167,7 +168,8 @@ class LocalDashboard:
         container.columnconfigure(0, weight=1)
         container.rowconfigure(5, weight=2)
         container.rowconfigure(6, weight=1)
-        container.rowconfigure(7, weight=2)
+        container.rowconfigure(7, weight=1)
+        container.rowconfigure(8, weight=2)
 
         header = ttk.Frame(container)
         header.grid(row=0, column=0, sticky="ew", pady=(0, 10))
@@ -183,6 +185,11 @@ class LocalDashboard:
         style.configure("Posture.VULNERABLE.TLabel", foreground="#a85d00")
         style.configure("Posture.ATTACK.TLabel", foreground="#b42318")
         style.configure("Posture.PENDING.TLabel", foreground="#475467")
+        self._ui_scale = max(1.0, float(root.tk.call("tk", "scaling")) / (96 / 72))
+        style.configure(
+            "Treeview",
+            rowheight=int(font.nametofont("TkDefaultFont").metrics("linespace") * 1.4),
+        )
         self._posture = tk.StringVar(value="AUDITORIA PENDENTE")
         self._hardening_score = tk.StringVar(value="Índice de proteção: —/100")
         ttk.Label(
@@ -225,11 +232,13 @@ class LocalDashboard:
         self._findings_count = tk.StringVar(value="0")
         self._integrity_status = tk.StringVar(value="PENDENTE")
         self._scanner_status = tk.StringVar(value="PENDENTE")
+        self._wireless_status = tk.StringVar(value="NÃO CONFIGURADO")
         self._add_value(details, 0, "Estado", self._state)
         self._add_value(details, 1, "run_id", self._run_id)
         self._add_value(details, 2, "Achados", self._findings_count)
         self._add_value(details, 3, "Integridade dinâmica", self._integrity_status)
         self._add_value(details, 4, "Ferramentas (Nmap + Tshark)", self._scanner_status)
+        self._add_value(details, 5, "Inventário sem fio", self._wireless_status)
 
         self._message = tk.StringVar(
             value=(
@@ -303,11 +312,11 @@ class LocalDashboard:
         self._findings_table.heading("mitre", text="MITRE ATT&CK")
         self._findings_table.heading("status", text="Status")
         self._findings_table.heading("summary", text="Resumo")
-        self._findings_table.column("severity", width=100, stretch=False)
-        self._findings_table.column("event", width=220, stretch=False)
-        self._findings_table.column("mitre", width=110, stretch=False)
-        self._findings_table.column("status", width=145, stretch=False)
-        self._findings_table.column("summary", width=420, stretch=True)
+        self._findings_table.column("severity", width=self._px(100), stretch=False)
+        self._findings_table.column("event", width=self._px(220), stretch=False)
+        self._findings_table.column("mitre", width=self._px(110), stretch=False)
+        self._findings_table.column("status", width=self._px(145), stretch=False)
+        self._findings_table.column("summary", width=self._px(420), stretch=True)
         self._findings_table.bind(
             "<<TreeviewSelect>>",
             self._show_selected_finding,
@@ -321,12 +330,49 @@ class LocalDashboard:
         self._findings_table.grid(row=0, column=0, sticky="nsew")
         findings_scroll.grid(row=0, column=1, sticky="ns")
 
+        wireless_frame = ttk.LabelFrame(
+            container,
+            text="Inventário sem fio (Wi-Fi / BLE) — somente alvos autorizados",
+            padding=8,
+        )
+        wireless_frame.grid(row=6, column=0, sticky="nsew", pady=(0, 10))
+        wireless_frame.columnconfigure(0, weight=1)
+        wireless_frame.rowconfigure(0, weight=1)
+        self._wireless_table = ttk.Treeview(
+            wireless_frame,
+            columns=("severity", "kind", "identifier", "name", "details"),
+            show="headings",
+            height=4,
+        )
+        self._wireless_table.tag_configure("CRITICAL", foreground="#b42318")
+        self._wireless_table.tag_configure("WARNING", foreground="#a85d00")
+        self._wireless_table.tag_configure("SECURE", foreground="#16803c")
+        self._wireless_table.tag_configure("INFO", foreground="#344054")
+        self._wireless_table.heading("severity", text="Severidade")
+        self._wireless_table.heading("kind", text="Tipo")
+        self._wireless_table.heading("identifier", text="BSSID / Endereço")
+        self._wireless_table.heading("name", text="SSID / Nome")
+        self._wireless_table.heading("details", text="Detalhes")
+        self._wireless_table.column("severity", width=self._px(100), stretch=False)
+        self._wireless_table.column("kind", width=self._px(70), stretch=False)
+        self._wireless_table.column("identifier", width=self._px(150), stretch=False)
+        self._wireless_table.column("name", width=self._px(200), stretch=False)
+        self._wireless_table.column("details", width=self._px(420), stretch=True)
+        wireless_scroll = ttk.Scrollbar(
+            wireless_frame,
+            orient=tk.VERTICAL,
+            command=self._wireless_table.yview,
+        )
+        self._wireless_table.configure(yscrollcommand=wireless_scroll.set)
+        self._wireless_table.grid(row=0, column=0, sticky="nsew")
+        wireless_scroll.grid(row=0, column=1, sticky="ns")
+
         detail_frame = ttk.LabelFrame(
             container,
             text="Análise e resposta do achado selecionado",
             padding=8,
         )
-        detail_frame.grid(row=6, column=0, sticky="nsew", pady=(0, 10))
+        detail_frame.grid(row=7, column=0, sticky="nsew", pady=(0, 10))
         detail_frame.columnconfigure(0, weight=1)
         detail_frame.rowconfigure(0, weight=1)
         self._finding_details = tk.Text(
@@ -367,7 +413,7 @@ class LocalDashboard:
             text="Console SIEM — eventos",
             padding=8,
         )
-        events_frame.grid(row=7, column=0, sticky="nsew")
+        events_frame.grid(row=8, column=0, sticky="nsew")
         events_frame.columnconfigure(0, weight=1)
         events_frame.rowconfigure(0, weight=1)
         self._events = tk.Text(
@@ -394,6 +440,9 @@ class LocalDashboard:
         )
 
         self._root.after(100, self._poll)
+
+    def _px(self, width: int) -> int:
+        return round(width * self._ui_scale)
 
     @staticmethod
     def _add_value(
@@ -424,6 +473,7 @@ class LocalDashboard:
         return {
             "CRITICAL": "CRÍTICO",
             "WARNING": "ATENÇÃO",
+            "SECURE": "SEGURO",
             "INFO": "INFORMATIVO",
         }.get(severity.upper(), "INFORMATIVO")
 
@@ -472,6 +522,84 @@ class LocalDashboard:
         if normalized in {"medium", "warning"}:
             return "WARNING"
         return "INFO"
+
+    @staticmethod
+    def _row_tag_for_wifi_security(security: str) -> str:
+        normalized = security.lower()
+        if normalized in {"open", "wep"}:
+            return "CRITICAL"
+        if normalized in {"wpa2", "wpa3"}:
+            return "SECURE"
+        return "WARNING"
+
+    @staticmethod
+    def _wireless_rows(
+        snapshot: SimulationSnapshot,
+    ) -> tuple[tuple[str, tuple[str, str, str, str, str]], ...]:
+        rows: list[tuple[str, tuple[str, str, str, str, str]]] = []
+        if snapshot.wifi_inventory is not None:
+            rssi_suffix = " (estimado)" if snapshot.wifi_source == "os_passive" else ""
+            for access_point in snapshot.wifi_inventory.access_points:
+                tag = LocalDashboard._row_tag_for_wifi_security(access_point.security)
+                rows.append(
+                    (
+                        tag,
+                        (
+                            LocalDashboard._severity_label(tag),
+                            "Wi-Fi",
+                            access_point.bssid,
+                            access_point.ssid,
+                            f"Canal {access_point.channel} · "
+                            f"{access_point.rssi_dbm} dBm{rssi_suffix} · "
+                            f"{access_point.security.upper()}",
+                        ),
+                    )
+                )
+        if snapshot.ble_inventory is not None:
+            for device in snapshot.ble_inventory.devices:
+                characteristics = [
+                    characteristic
+                    for service in device.services
+                    for characteristic in service.characteristics
+                ]
+                properties = sorted(
+                    {
+                        prop
+                        for characteristic in characteristics
+                        for prop in characteristic.properties
+                    }
+                )
+                rows.append(
+                    (
+                        "SECURE",
+                        (
+                            LocalDashboard._severity_label("SECURE"),
+                            "BLE",
+                            device.address,
+                            device.name,
+                            f"{len(device.services)} serviço(s) · "
+                            f"{len(characteristics)} característica(s) · "
+                            f"somente leitura ({', '.join(properties) or 'nenhuma'})",
+                        ),
+                    )
+                )
+        return tuple(rows)
+
+    @staticmethod
+    def _wireless_status_for(snapshot: SimulationSnapshot) -> str:
+        parts: list[str] = []
+        if snapshot.wifi_inventory is not None:
+            origin = (
+                "cache passivo do SO"
+                if snapshot.wifi_source == "os_passive"
+                else "arquivo autorizado"
+            )
+            parts.append(
+                f"{len(snapshot.wifi_inventory.access_points)} rede(s) Wi-Fi ({origin})"
+            )
+        if snapshot.ble_inventory is not None:
+            parts.append(f"{len(snapshot.ble_inventory.devices)} dispositivo(s) BLE")
+        return " + ".join(parts) if parts else "NÃO CONFIGURADO"
 
     def _resize_message_wrap(self, event: tk.Event) -> None:
         self._message_label.configure(wraplength=max(320, event.width - 40))
@@ -550,6 +678,10 @@ class LocalDashboard:
         self._copy_recommendation_button.configure(state=tk.DISABLED)
         self._safe_mitigation_button.configure(state=tk.DISABLED)
         self._rendered_findings = ()
+        for item in self._wireless_table.get_children():
+            self._wireless_table.delete(item)
+        self._rendered_wireless = (None, None)
+        self._wireless_status.set("NÃO CONFIGURADO")
         self._set_finding_details("Auditoria em andamento...")
         self._findings_count.set("0")
         self._integrity_status.set("VERIFICANDO")
@@ -807,6 +939,24 @@ class LocalDashboard:
             fill=self._traffic_color_for(style_name),
         )
         self._render_findings(snapshot)
+        self._render_wireless_inventory(snapshot)
+
+    def _render_wireless_inventory(self, snapshot: SimulationSnapshot) -> None:
+        current = (snapshot.wifi_inventory, snapshot.ble_inventory)
+        if current == self._rendered_wireless:
+            return
+        self._rendered_wireless = current
+        self._wireless_status.set(self._wireless_status_for(snapshot))
+        for item in self._wireless_table.get_children():
+            self._wireless_table.delete(item)
+        for index, (tag, values) in enumerate(self._wireless_rows(snapshot)):
+            self._wireless_table.insert(
+                "",
+                tk.END,
+                iid=f"wireless-{index}",
+                values=values,
+                tags=(tag,),
+            )
 
     def _render_findings(self, snapshot: SimulationSnapshot) -> None:
         if (
@@ -939,6 +1089,8 @@ class LocalDashboard:
                 "network.correlation.vulnerability_detected": (
                     "CRÍTICO: CORRELAÇÃO NMAP + TSHARK"
                 ),
+                "network.wifi.inventory_collected": "INVENTÁRIO WI-FI AUTORIZADO",
+                "network.ble.inventory_collected": "INVENTÁRIO BLE AUTORIZADO",
             }.get(event_name, event_name)
             self._append_console_line(
                 f"{timestamp} {display_name}",
@@ -987,10 +1139,14 @@ class LocalDashboard:
                 self._root.destroy()
 
 
-def launch_gui(*, root_factory: Callable[[], tk.Tk] = tk.Tk) -> int:
+def launch_gui(
+    *,
+    root_factory: Callable[[], tk.Tk] = tk.Tk,
+    session_factory: Callable[[], LocalSimulationSession] = LocalSimulationSession,
+) -> int:
     try:
         root = root_factory()
-        LocalDashboard(root)
+        LocalDashboard(root, session_factory=session_factory)
         root.mainloop()
     except tk.TclError as error:
         raise RuntimeError(

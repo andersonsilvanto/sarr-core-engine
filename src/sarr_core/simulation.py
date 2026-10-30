@@ -13,11 +13,18 @@ from threading import RLock
 from uuid import UUID
 
 from core import (
+    BleGattInventory,
+    BluetoothGattInventoryAdapter,
     CoreOrchestrator,
     Persistence,
     RunState,
+    ScopeValidationError,
     ScopeValidator,
+    WifiInventory,
+    WifiInventoryAdapter,
     resolve_data_directory,
+    run_inventory_import_module,
+    run_wifi_inventory_module,
 )
 from core.events import Event
 from core.report_service import AuditReportService
@@ -180,6 +187,9 @@ class SimulationSnapshot:
     findings: tuple[SecurityFinding, ...]
     healed_paths: tuple[str, ...] = ()
     scanner_status: tuple[tuple[str, str], ...] = ()
+    wifi_inventory: WifiInventory | None = None
+    wifi_source: str = ""
+    ble_inventory: BleGattInventory | None = None
 
     @property
     def hardening_score(self) -> int:
@@ -194,7 +204,27 @@ class LocalSimulationSession:
         scenario: SecurityScenario = SecurityScenario.NORMAL,
         *,
         tshark_capture: str | Path | None = None,
+        wireless_scope: str | Path | None = None,
+        wifi_authorization: str | Path | None = None,
+        wifi_inventory: str | Path | None = None,
+        ble_inventory: str | Path | None = None,
+        wifi_adapter: WifiInventoryAdapter | None = None,
+        ble_adapter: BluetoothGattInventoryAdapter | None = None,
     ) -> None:
+        if wifi_authorization is not None and wifi_inventory is not None:
+            raise ValueError(
+                "Use wifi_authorization (live OS cache) or wifi_inventory "
+                "(file import), not both."
+            )
+        wireless_requested = any(
+            source is not None
+            for source in (wifi_authorization, wifi_inventory, ble_inventory)
+        )
+        if wireless_requested != (wireless_scope is not None):
+            raise ValueError(
+                "Wireless inventory requires an operator scope file together "
+                "with a Wi-Fi authorization, Wi-Fi inventory or BLE inventory."
+            )
         if not isinstance(scenario, SecurityScenario):
             try:
                 scenario = SecurityScenario(scenario)
@@ -217,18 +247,39 @@ class LocalSimulationSession:
         self._executive_report: dict[str, object] | None = None
         self._healed_paths: tuple[str, ...] = ()
         self._scanner_status: tuple[tuple[str, str], ...] = ()
+        self._wireless_scope = wireless_scope
+        self._wifi_authorization_source = wifi_authorization
+        self._wifi_inventory_source = wifi_inventory
+        self._ble_inventory_source = ble_inventory
+        self._wifi_inventory: WifiInventory | None = None
+        self._wifi_source = ""
+        self._ble_inventory: BleGattInventory | None = None
+        self._orchestrator.modules.register(
+            WifiInventoryAdapter.ACTIVITY,
+            wifi_adapter or WifiInventoryAdapter(),
+        )
+        self._orchestrator.modules.register(
+            BluetoothGattInventoryAdapter.ACTIVITY,
+            ble_adapter or BluetoothGattInventoryAdapter(),
+        )
         self._shadow_baselines = self._load_shadow_baselines()
 
     @property
     def snapshot(self) -> SimulationSnapshot:
         with self._lock:
             findings = self._findings
+            wifi_inventory = self._wifi_inventory
+            wifi_source = self._wifi_source
+            ble_inventory = self._ble_inventory
         return SimulationSnapshot(
             run_id=self._run.run_id,
             state=self._orchestrator.get_state(self._run.run_id),
             findings=findings,
             healed_paths=self._healed_paths,
             scanner_status=self._scanner_status,
+            wifi_inventory=wifi_inventory,
+            wifi_source=wifi_source,
+            ble_inventory=ble_inventory,
         )
 
     def run(self) -> SimulationSnapshot:
@@ -358,6 +409,7 @@ class LocalSimulationSession:
                 self._persist_finding(finding)
 
             if not self._orchestrator.kill_switch.is_triggered:
+                self._run_wireless_inventory()
                 self._orchestrator.record_module_execution(
                     self._run.run_id,
                     "security_audit_demo",
@@ -738,6 +790,104 @@ class LocalSimulationSession:
                 },
             )
         )
+
+    def _run_wireless_inventory(self) -> None:
+        """Run Wi-Fi/BLE inventory modules in a run bound to the operator scope.
+
+        The self-issued demo scope never authorizes wireless modules; they run
+        only under the operator-supplied scope, on the same EventBus,
+        persistence and kill-switch as the security audit.
+        """
+        if self._wireless_scope is None:
+            return
+        modules = self._orchestrator.modules
+        wifi_adapter = modules.get(WifiInventoryAdapter.ACTIVITY)
+        ble_adapter = modules.get(BluetoothGattInventoryAdapter.ACTIVITY)
+        requested_modules: list[str] = []
+        requested_targets: set[str] = set()
+        wifi_authorization = None
+        if self._wifi_authorization_source is not None:
+            wifi_authorization = wifi_adapter.load_authorization(
+                self._wifi_authorization_source
+            )
+            requested_modules.append(WifiInventoryAdapter.ACTIVITY)
+            requested_targets |= wifi_authorization.allowed_targets
+        elif self._wifi_inventory_source is not None:
+            requested_modules.append(WifiInventoryAdapter.ACTIVITY)
+            requested_targets |= wifi_adapter.load_authorization(
+                self._wifi_inventory_source
+            ).allowed_targets
+        if self._ble_inventory_source is not None:
+            requested_modules.append(BluetoothGattInventoryAdapter.ACTIVITY)
+            requested_targets |= ble_adapter.load_authorization(
+                self._ble_inventory_source
+            ).allowed_targets
+
+        engagement_id, environment = self._read_operator_scope_identity()
+        wireless_run = self._orchestrator.create_run("wireless_inventory")
+        self._orchestrator.validate_scope(
+            wireless_run.run_id,
+            str(self._wireless_scope),
+            engagement_id=engagement_id,
+            environment=environment,
+            targets=sorted(requested_targets),
+            modules=requested_modules,
+            validator=ScopeValidator(kill_switch=self._orchestrator.kill_switch),
+        )
+        self._orchestrator.transition(wireless_run.run_id, RunState.RUNNING)
+        wifi_inventory: WifiInventory | None = None
+        wifi_source = ""
+        if wifi_authorization is not None:
+            wifi_inventory = run_wifi_inventory_module(
+                self._orchestrator, wireless_run.run_id, wifi_authorization
+            )
+            wifi_source = "os_passive"
+        elif self._wifi_inventory_source is not None:
+            imported = run_inventory_import_module(
+                self._orchestrator,
+                wireless_run.run_id,
+                WifiInventoryAdapter.ACTIVITY,
+                self._wifi_inventory_source,
+            )
+            if not isinstance(imported, WifiInventory):
+                raise TypeError("Wi-Fi module returned an unexpected inventory.")
+            wifi_inventory = imported
+            wifi_source = "file_import"
+        ble_inventory: BleGattInventory | None = None
+        if self._ble_inventory_source is not None:
+            imported_ble = run_inventory_import_module(
+                self._orchestrator,
+                wireless_run.run_id,
+                BluetoothGattInventoryAdapter.ACTIVITY,
+                self._ble_inventory_source,
+            )
+            if not isinstance(imported_ble, BleGattInventory):
+                raise TypeError("BLE module returned an unexpected inventory.")
+            ble_inventory = imported_ble
+        with self._lock:
+            self._wifi_inventory = wifi_inventory
+            self._wifi_source = wifi_source
+            self._ble_inventory = ble_inventory
+        self._orchestrator.transition(wireless_run.run_id, RunState.COMPLETED)
+
+    def _read_operator_scope_identity(self) -> tuple[str, str]:
+        try:
+            document = json.loads(
+                Path(self._wireless_scope).read_text(encoding="utf-8")  # type: ignore[arg-type]
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ScopeValidationError(
+                "Operator wireless scope is missing or not valid JSON."
+            ) from error
+        if not isinstance(document, dict):
+            raise ScopeValidationError("Operator wireless scope must be a JSON object.")
+        engagement_id = document.get("engagement_id")
+        environment = document.get("environment")
+        if not isinstance(engagement_id, str) or not isinstance(environment, str):
+            raise ScopeValidationError(
+                "Operator wireless scope requires engagement_id and environment."
+            )
+        return engagement_id, environment
 
     def _validate_local_scope(self) -> None:
         now = datetime.now(timezone.utc)

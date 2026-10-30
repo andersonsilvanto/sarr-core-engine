@@ -48,6 +48,7 @@ from core.state_machine import (
 )
 from core.telemetry import TelemetrySample, TelemetryScenario, TelemetrySimulator
 from core.wireless_inventory import (
+    BLE_INVENTORY_EVENT,
     BleDevice,
     BleGattInventory,
     BluetoothGattInventoryAdapter,
@@ -60,7 +61,9 @@ from core.wireless_inventory import (
     WifiAccessPoint,
     WifiInventory,
     WifiInventoryAdapter,
+    publish_ble_inventory,
     publish_wifi_inventory,
+    run_inventory_import_module,
     run_wifi_inventory_module,
 )
 
@@ -119,8 +122,11 @@ __all__ = [
     "WifiAccessPoint",
     "WifiInventory",
     "WifiInventoryAdapter",
+    "BLE_INVENTORY_EVENT",
     "WIFI_INVENTORY_EVENT",
+    "publish_ble_inventory",
     "publish_wifi_inventory",
+    "run_inventory_import_module",
     "run_wifi_inventory_module",
     "application_directory",
     "default_user_data_directory",
