@@ -248,7 +248,11 @@ class GuiTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertTrue(root.mainloop_called)
-        dashboard.assert_called_once_with(root)
+        from sarr_core.simulation import LocalSimulationSession
+
+        dashboard.assert_called_once_with(
+            root, session_factory=LocalSimulationSession
+        )
 
     def test_launch_gui_reports_missing_desktop_display(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "área de trabalho"):

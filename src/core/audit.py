@@ -263,6 +263,14 @@ _AUDIT_FIELDS: dict[str, tuple[str, ...]] = {
         "discarded_count",
         "access_points",
     ),
+    "network.ble.inventory_collected": (
+        "approval_reference",
+        "approved_by",
+        "activity",
+        "source",
+        "device_count",
+        "devices",
+    ),
     "network.correlation.vulnerability_detected": (
         "host",
         "port",

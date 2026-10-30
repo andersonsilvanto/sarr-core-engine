@@ -340,6 +340,41 @@ publicado no EventBus como `network.wifi.inventory_collected` e entra
 automaticamente no SQLite e na auditoria JSONL. Inventários importados podem
 usar o mesmo evento via `publish_wifi_inventory(..., source="file_import")`.
 
+Arquivos importados passam pelo mesmo gate com
+`run_inventory_import_module(engine, run_id, module_name, source)`: o módulo
+precisa estar no escopo, a allowlist do arquivo precisa estar contida em
+`allowed_targets` e só então o inventário é publicado como
+`network.wifi.inventory_collected` (`source: "file_import"`) ou
+`network.ble.inventory_collected`. `load_authorization(source)` lê somente o
+bloco `authorization` do mesmo JSON de inventário (o array `devices` pode ser
+vazio), e é assim que a coleta ao vivo recebe a autorização.
+
+### Inventário no painel SOC e na CLI
+
+O escopo autoemitido da auditoria local (`security_audit_demo`, `127.0.0.1`)
+nunca autoriza módulos sem fio. Para incluir o inventário, o operador fornece
+um escopo próprio (`schemas/scope.schema.json`, `mode: "wireless_inventory"`,
+com `wifi_passive_inventory` e/ou `ble_gatt_inventory_readonly` em
+`allowed_modules` e os BSSIDs/endereços em `allowed_targets`) e pelo menos uma
+fonte autorizada:
+
+```bash
+python -m sarr_core.cli --gui --wireless-scope escopo-wireless.json \
+  --wifi-authorization autorizacao-wifi.json   # cache passivo do SO
+python -m sarr_core.cli --run-sim --wireless-scope escopo-wireless.json \
+  --wifi-inventory wifi.json --ble-inventory ble.json   # arquivos importados
+```
+
+A sessão cria uma segunda execução (`wireless_inventory`) no mesmo
+orquestrador, com o mesmo EventBus, persistência e kill-switch. Qualquer falha
+de escopo/autorização aciona o kill-switch e nenhum comando do SO é executado.
+O resultado entra no `SimulationSnapshot` (`wifi_inventory`, `wifi_source`,
+`ble_inventory`), o mesmo caminho que o painel usa para os achados. A seção
+"Inventário sem fio" do painel usa as cores dos achados: vermelho para Wi-Fi
+aberto/WEP, âmbar para segurança desconhecida e verde para WPA2/WPA3 e
+dispositivos BLE (somente leitura). O RSSI da coleta ao vivo aparece como
+"(estimado)".
+
 Somente os conjuntos de dados sintéticos em `tests/fixtures/` acompanham os
 testes; eles usam identificadores localmente administrados e nomes marcados
 como sintéticos.
