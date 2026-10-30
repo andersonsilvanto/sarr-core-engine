@@ -1,0 +1,133 @@
+{
+  "execution": {
+    "ended_at_utc": "2026-10-29T21:27:09.446704Z",
+    "mode": "simulation",
+    "modules_executed": [
+      "security_audit_demo"
+    ],
+    "started_at_utc": "2026-10-29T21:27:09.179341Z",
+    "state": "COMPLETED"
+  },
+  "findings": [
+    {
+      "created_at_utc": "2026-10-29T21:27:09.374229Z",
+      "description": "Windows ACL permissions were not verified.",
+      "evidence": {
+        "acao_bloqueio": "Não marcar a postura como SECURE até a revisão manual das ACLs do arquivo.",
+        "mitre_id": "",
+        "path": "config/canary_credentials.json",
+        "platform": "windows",
+        "remediacao": "Inspecione as ACLs com: icacls.exe 'config\\canary_credentials.json' /verify. Revise os grupos com acesso de escrita antes de declarar o arquivo seguro.",
+        "vetor_ataque": "ACLs não verificadas significam que esta auditoria não pode descartar permissões excessivas; nenhum abuso foi observado."
+      },
+      "finding_id": "4e71117d-c436-4f13-aecb-18bb2cb14281",
+      "severity": "warning",
+      "title": "security.permission.audit_unavailable"
+    },
+    {
+      "created_at_utc": "2026-10-29T21:27:09.384460Z",
+      "description": "Windows ACL permissions were not verified.",
+      "evidence": {
+        "acao_bloqueio": "Não marcar a postura como SECURE até a revisão manual das ACLs do arquivo.",
+        "mitre_id": "",
+        "path": "config/dashboard.schema.json",
+        "platform": "windows",
+        "remediacao": "Inspecione as ACLs com: icacls.exe 'config\\dashboard.schema.json' /verify. Revise os grupos com acesso de escrita antes de declarar o arquivo seguro.",
+        "vetor_ataque": "ACLs não verificadas significam que esta auditoria não pode descartar permissões excessivas; nenhum abuso foi observado."
+      },
+      "finding_id": "57f3d60b-bf9c-4bc8-979b-8907ef8a6348",
+      "severity": "warning",
+      "title": "security.permission.audit_unavailable"
+    },
+    {
+      "created_at_utc": "2026-10-29T21:27:09.395359Z",
+      "description": "Windows ACL permissions were not verified.",
+      "evidence": {
+        "acao_bloqueio": "Não marcar a postura como SECURE até a revisão manual das ACLs do arquivo.",
+        "mitre_id": "",
+        "path": "schemas/dashboard.schema.json",
+        "platform": "windows",
+        "remediacao": "Inspecione as ACLs com: icacls.exe 'schemas\\dashboard.schema.json' /verify. Revise os grupos com acesso de escrita antes de declarar o arquivo seguro.",
+        "vetor_ataque": "ACLs não verificadas significam que esta auditoria não pode descartar permissões excessivas; nenhum abuso foi observado."
+      },
+      "finding_id": "2963a85d-4979-4d79-9652-958cee9022f6",
+      "severity": "warning",
+      "title": "security.permission.audit_unavailable"
+    },
+    {
+      "created_at_utc": "2026-10-29T21:27:09.405481Z",
+      "description": "Windows ACL permissions were not verified.",
+      "evidence": {
+        "acao_bloqueio": "Não marcar a postura como SECURE até a revisão manual das ACLs do arquivo.",
+        "mitre_id": "",
+        "path": "schemas/scope.schema.json",
+        "platform": "windows",
+        "remediacao": "Inspecione as ACLs com: icacls.exe 'schemas\\scope.schema.json' /verify. Revise os grupos com acesso de escrita antes de declarar o arquivo seguro.",
+        "vetor_ataque": "ACLs não verificadas significam que esta auditoria não pode descartar permissões excessivas; nenhum abuso foi observado."
+      },
+      "finding_id": "b928c9c6-761e-40cd-8484-65350ac1e369",
+      "severity": "warning",
+      "title": "security.permission.audit_unavailable"
+    },
+    {
+      "created_at_utc": "2026-10-29T21:27:09.416943Z",
+      "description": "Nmap não foi encontrado no PATH; inventário local/sintético permanece ativo.",
+      "evidence": {
+        "acao_bloqueio": "Nenhum bloqueio; continuar somente com evidência local/sintética.",
+        "fallback": "internal_simulation",
+        "mitre_id": "",
+        "remediacao": "Opcional: instale nmap por um canal confiável e reinicie o motor; a simulação interna continua disponível.",
+        "tool": "nmap",
+        "vetor_ataque": "N/A — ferramenta externa indisponível."
+      },
+      "finding_id": "9952d5f6-a18d-47e7-86c8-68e48138da39",
+      "severity": "info",
+      "title": "external.scanner.unavailable"
+    },
+    {
+      "created_at_utc": "2026-10-29T21:27:09.427595Z",
+      "description": "Tshark não foi encontrado no PATH; inventário local/sintético permanece ativo.",
+      "evidence": {
+        "acao_bloqueio": "Nenhum bloqueio; continuar somente com evidência local/sintética.",
+        "fallback": "internal_simulation",
+        "mitre_id": "",
+        "remediacao": "Opcional: instale tshark por um canal confiável e reinicie o motor; a simulação interna continua disponível.",
+        "tool": "tshark",
+        "vetor_ataque": "N/A — ferramenta externa indisponível."
+      },
+      "finding_id": "dbed88fc-449e-4a58-ae2e-db394590bb48",
+      "severity": "info",
+      "title": "external.scanner.unavailable"
+    }
+  ],
+  "kill_switch": {
+    "events": [],
+    "triggered": false
+  },
+  "limitations": [
+    "O relatório inclui apenas dados registrados para esta execução.",
+    "Módulos executados são identificados por eventos module.executed.",
+    "Métricas agregadas incluem somente valores numéricos persistidos."
+  ],
+  "metrics": {},
+  "operator": "local-operator",
+  "recommendations": [
+    "Mantenha o escopo restrito aos alvos e módulos estritamente necessários.",
+    "Investigue achados e eventos do kill-switch antes de qualquer nova execução.",
+    "Revise limites operacionais e validade do escopo antes de autorizar outra execução."
+  ],
+  "report_id": "c44c84cb-f9a8-43d4-a409-5e498b678442",
+  "scope": {
+    "engagement_id": "local-security-demo",
+    "environment": "local",
+    "sha256": "3db3764691ac063d19cc51faa71db7fef449447986bfd2e3072005bb8542f877",
+    "valid_from_utc": "2026-10-29T21:27:08.139998Z",
+    "valid_until_utc": "2026-10-29T21:32:09.139998Z"
+  },
+  "stop_reason": "completed",
+  "system": {
+    "name": "SARR-Core Engine",
+    "run_id": "f38a8c55-6a5b-4fcf-9f08-14252ab62114",
+    "version": "0.1.0"
+  }
+}

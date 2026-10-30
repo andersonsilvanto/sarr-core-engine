@@ -1,0 +1,6 @@
+FASE 0. Não escreva código ainda. Varra o repositório e me entregue:
+1) árvore de diretórios e arquivos atuais, 2) módulos que já cobrem captura,
+detecção, mitigação, métricas ou testes, 3) convenções existentes (nomes, config,
+logging, testes), 4) conflitos entre o que existe e os contratos C1–C5,
+5) um plano de integração: o que será estendido, o que será criado e em qual
+caminho. Aguarde minha aprovação do plano.

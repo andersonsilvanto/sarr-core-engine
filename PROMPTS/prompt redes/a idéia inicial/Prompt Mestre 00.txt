@@ -1,0 +1,92 @@
+Você é um engenheiro sênior de segurança defensiva (purple team). Vamos construir o
+"SARR-Core Engine": um motor de detecção e mitigação de port scan e SYN flood, com
+telemetria Prometheus, dashboard Grafana e simulador de ataque para validação em
+laboratório. Linguagem: Python 3.11+. Ambiente de desenvolvimento: Windows + VS Code;
+execução real em containers Linux via Docker Compose.
+
+REGRAS GERAIS
+- Trabalhe por FASES. Ao final de cada fase, PARE, liste o que foi criado e como testar,
+  e espere eu responder "próxima fase".
+- Código tipado (type hints), docstrings curtas, logging estruturado (módulo logging),
+  sem dependências desnecessárias. Dependências em requirements.txt com versões fixas.
+- Toda configuração (limiares, janelas, portas, allowlist, TTL) em config.yaml validado
+  na inicialização; nada de valores mágicos no código.
+- Cada módulo com testes pytest. Nenhuma fase termina sem testes passando.
+- Segurança: nunca usar shell=True; validar IPs com o módulo ipaddress; nunca interpolar
+  entrada de rede em comandos.
+
+ESTRUTURA DO REPOSITÓRIO
+sarr-core-engine/
+  src/sarr/{config.py, models.py, capture.py, detector.py, mitigation.py,
+            telemetry.py, engine.py, main.py}
+  simulator/attack_simulator.py
+  deploy/{Dockerfile, docker-compose.yml, prometheus.yml,
+          grafana/dashboard.json, grafana/provisioning/}
+  tests/
+  config.yaml
+  README.md
+
+FASE 1 — DETECÇÃO HEURÍSTICA (detector.py, models.py, capture.py)
+- models.py: dataclass imutável SecurityEvent (timestamp, src_ip, tipo: PORT_SCAN |
+  SYN_FLOOD, severidade, detalhes: portas distintas, taxa de SYN, janela).
+- detector.py: janela deslizante por IP de origem (deque com timestamps e portas).
+  * PORT_SCAN: IP que enviar SYN para mais de X portas DISTINTAS em Y segundos.
+  * SYN_FLOOD: taxa de SYN acima de N/s sem conclusão do handshake (ACK) na janela.
+  * Limpeza periódica de IPs inativos e limite máximo de IPs rastreados (proteção contra
+    esgotamento de memória). Deduplicar eventos (cooldown por IP/tipo).
+- capture.py: captura com Scapy, separada da lógica de detecção. Deve aceitar também
+  leitura de arquivo .pcap e um gerador de pacotes sintéticos, para eu testar no Windows
+  sem privilégios. A função de análise deve receber dados de pacote já extraídos
+  (src_ip, dst_port, flags, timestamp), não objetos Scapy, para facilitar testes.
+- Testes: cenários de tráfego legítimo (sem falso positivo), scan lento, scan rápido,
+  flood, e IPs em allowlist.
+
+FASE 2 — MITIGAÇÃO FAIL-CLOSED (mitigation.py)
+- Interface abstrata Mitigator com block(ip, ttl), unblock(ip), list_blocked().
+- Implementações: DryRunMitigator (PADRÃO, só registra em log), IptablesMitigator
+  (subprocess com lista de argumentos, cadeia própria "SARR_BLOCK", operações
+  idempotentes), DockerMitigator (desconecta o container comprometido da rede via
+  SDK do Docker).
+- Travas obrigatórias: allowlist (gateway, loopback, IP do próprio host, IPs de
+  gerenciamento) que NUNCA pode ser bloqueada; TTL com desbloqueio automático; limite
+  de bloqueios simultâneos; rollback completo no shutdown limpo.
+- Semântica fail-closed documentada em docstring e no README: se o motor falhar, perder
+  a captura ou não conseguir decidir, aplicar a política segura configurada (negar por
+  padrão para o segmento protegido), e expor esse estado como métrica.
+- Testes com mock do subprocess/Docker (nunca executar iptables real nos testes).
+
+FASE 3 — TELEMETRIA (telemetry.py)
+- Classe TelemetryExporter com prometheus_client, servidor HTTP em porta configurável.
+- Métricas:
+  * sarr_packets_analyzed_total (Counter)
+  * sarr_events_total{tipo} (Counter)
+  * sarr_ips_blocked_total (Counter)
+  * sarr_inspection_latency_seconds (Gauge; ou Histogram, se justificar)
+  * sarr_failclosed_active (Gauge 0/1)
+  * sarr_suspicious_connections{src_ip} (Gauge, limitado aos top N IPs para evitar
+    explosão de cardinalidade)
+- engine.py integra captura → detector → mitigação → telemetria. main.py com CLI
+  (argparse): --config, --mode {live,pcap,synthetic}, --dry-run/--enforce.
+
+FASE 4 — SIMULADOR DE ATAQUE (simulator/attack_simulator.py)
+- Gera tráfego legítimo (conexões TCP normais para portas conhecidas) alternado com
+  rajadas de port scan e SYN flood, com intensidade e duração configuráveis.
+- TRAVAS ÉTICAS: só aceita alvos em loopback ou em redes privadas RFC1918 listadas em
+  uma allowlist explícita; exige o argumento --i-own-this-lab; limita taxa máxima; imprime
+  aviso claro de uso exclusivo em laboratório próprio. Recusar qualquer alvo público.
+- Modo que emite um relatório final (eventos esperados vs. detectados) para validar o
+  motor.
+
+FASE 5 — OBSERVABILIDADE E DOCUMENTAÇÃO
+- docker-compose.yml: serviços sarr-engine (cap NET_ADMIN/NET_RAW apenas onde
+  necessário), simulator (profile separado), prometheus e grafana, com rede isolada.
+- prometheus.yml com scrape do exporter.
+- grafana/dashboard.json (provisionado) com painéis: pacotes inspecionados/s, eventos por
+  tipo, top IPs suspeitos, IPs bloqueados ao longo do tempo, latência de inspeção e
+  indicador Ativo/Bloqueado do Fail-Closed.
+- README.md profissional: visão geral, diagrama da arquitetura (Mermaid), pré-requisitos
+  para Windows (Docker Desktop + WSL2), quick start, tabela de configuração, como rodar
+  o simulador, limitações conhecidas, aviso legal de uso ético e roadmap.
+
+COMECE AGORA pela FASE 1. Antes de escrever código, apresente em até 10 linhas o plano
+da fase e as decisões de projeto que você assumiu.

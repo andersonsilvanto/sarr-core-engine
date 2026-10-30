@@ -1,0 +1,12 @@
+FASE 1 (contrato C1). Implemente a detecção, estendendo o que a Fase 0 apontou.
+- Janela deslizante por IP de origem. PORT_SCAN: SYN para mais de X portas
+  DISTINTAS em Y segundos. SYN_FLOOD: taxa de SYN acima de N/s sem ACK na
+  janela.
+- Limite máximo de IPs rastreados, limpeza de IPs inativos e cooldown por
+  IP/tipo.
+- A análise recebe dados já extraídos (src_ip, dst_port, flags, timestamp),
+  nunca objetos Scapy. A captura é separada e aceita: live, arquivo .pcap e
+  gerador sintético (para testar no Windows sem privilégios).
+- Testes: tráfego legítimo (sem falso positivo), scan lento, scan rápido,
+  flood e IP em allowlist.
+Pare aqui e aguarde "próxima fase".

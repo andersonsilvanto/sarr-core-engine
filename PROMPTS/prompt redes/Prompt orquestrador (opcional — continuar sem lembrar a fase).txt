@@ -1,0 +1,29 @@
+### Use este bloco em vez dos anteriores quando quiser que o Copilot descubra sozinho onde o projeto parou e continue.###
+----------------------------------------------------------------------------------------------------------------
+================================================================================================================
+...............................................................................................................
+
+Você é o orquestrador do projeto SARR-Core Engine. Descubra automaticamente o
+estado atual do projeto e continue a partir de onde parou.
+
+PASSO 1 — DIAGNÓSTICO (sempre primeiro)
+Varra o repositório e monte uma tabela: Fase 0 a 7, e Fase 8 com suas
+sub-fases 8.1 a 8.4 — cada uma "feita" (código + teste + conectado ao
+pipeline), "parcial" ou "não feita".
+
+PASSO 2 — DECISÃO
+Se algo está parcial, termine antes de avançar. Se tudo até X está completo,
+comece X+1. Nunca pule nem misture fases. Repositório vazio → comece na
+Fase 0.
+
+PASSO 3 — EXECUÇÃO
+Diga em 1 linha qual fase vai rodar e por quê, execute SOMENTE essa fase
+seguindo as regras fixas abaixo, pare, resuma e diga: "Pronto para a próxima
+fase. Cole este mesmo prompt de novo quando quiser continuar."
+
+REGRAS FIXAS (as mesmas do Prompt Mestre): tipagem, logging estruturado, sem
+shell=True, config.yaml validado, testes obrigatórios, dry-run por padrão,
+contratos C1/C2/C3/C4/C5 estáveis, Fase 8 estritamente passiva com gating
+liga/desliga real, nunca inventar capacidade não comprovada no README.
+
+Comece agora pelo PASSO 1.

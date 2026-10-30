@@ -1,0 +1,319 @@
+PROMPT ÚNICO DE CORREÇÃO — SARR-Core Engine
+(Cole inteiro no Copilot/Claude do VS Code, com o workspace aberto na raiz do repositório.)
+
+==============================================================================
+PAPEL E CONTEXTO
+==============================================================================
+Você é um engenheiro Python sênior revisando o repositório sarr-core-engine
+(Windows x64, CPython 3.10–3.15, venv em .venv, código em src/core e
+src/sarr_core, testes em tests/ com unittest). O projeto é DEFENSIVO, local e
+fail-closed. Esta tarefa corrige defeitos reais já confirmados por leitura de
+todo o código e por execução da suíte (123 testes). Execute as ETAPAS 0 a 7 na
+ordem, sem pular, rodando a suíte ao final de cada etapa.
+
+Comando de teste (use sempre este, no PowerShell, na raiz):
+  .venv\Scripts\python.exe -m unittest discover -s tests -p "*test*.py" -v
+
+==============================================================================
+REGRAS INVIOLÁVEIS
+==============================================================================
+R1. NÃO enfraquecer nenhuma proteção: fail-closed, kill-switch latched,
+    validação de escopo, allowlists, limites operacionais, redação de
+    credenciais, restrição do Nmap a 127.0.0.1, Tshark somente offline.
+R2. NÃO alterar a lógica de: core/kill_switch.py, core/scope_validator.py,
+    core/operational_limits.py, core/orchestrator.py, core/redaction.py,
+    hardening_score(), restore_known_baselines(), nem o conteúdo dos arquivos
+    schemas/*.json e config/*.json (o hash deles é baseline de segurança:
+    mudar um byte, inclusive fim de linha, muda o hash).
+R3. NÃO executar: git reset, git clean, git push --force, git checkout/restore
+    em massa, nem apagar arquivos fora dos listados na ETAPA 6. Não instalar
+    pacotes, não usar rede, não rodar Nmap/Tshark.
+R4. Nomes técnicos de eventos (ex.: security.port.exposed), chaves JSON,
+    nomes de estados internos (RunState) e identificadores de estilo
+    (Posture.SECURE.TLabel) NÃO mudam. Só mudam textos visíveis ao usuário.
+R5. Todo texto visível ao usuário fica em português do Brasil. Podem
+    permanecer em inglês APENAS estes termos técnicos: Hardening Score,
+    Kill-Switch, SIEM, Nmap, Tshark, MITRE ATT&CK, Red Team, Blue Team,
+    baseline, fail-closed, run_id, SHA-256, JSON, Markdown.
+R6. Se um teste existente falhar por causa de uma mudança de texto pedida
+    aqui, atualize a asserção no MESMO passo. Se falhar por qualquer outro
+    motivo, PARE e relate; não "conserte" relaxando o teste.
+
+==============================================================================
+ETAPA 0 — LINHA DE BASE
+==============================================================================
+Rode a suíte e anote: total de testes, falhas, erros, skips. Anote também o
+resultado de:  .venv\Scripts\python.exe -m sarr_core --run-sim
+(estado final esperado depois da ETAPA 1: COMPLETED, código de saída 0).
+
+==============================================================================
+ETAPA 1 (CRÍTICA) — FINS DE LINHA vs. HASHES DE BASELINE
+==============================================================================
+DIAGNÓSTICO CONFIRMADO: no git, todos os arquivos estão com LF. Em
+src/sarr_core/simulation.py, _FILE_BASELINES guarda hashes calculados sobre
+CRLF (checkout Windows com autocrlf) para 3 dos 4 arquivos. Resultado: em
+qualquer clone com LF (Linux, macOS, Windows com autocrlf=false, CI) o
+cenário "normal" termina BLOCKED com 3 achados críticos falsos
+(integrity.hash.mismatch em schemas/dashboard.schema.json e
+schemas/scope.schema.json; deception.canary.triggered em
+config/canary_credentials.json), e 5 testes falham. O 4º arquivo,
+config/dashboard.schema.json, já tem hash LF (é gravado com newline="\n" por
+_export_dashboard) — isso prova que LF é o formato canônico correto.
+
+CORREÇÃO (opção A: LF canônico, sem relaxar a verificação de hash):
+1.1  Criar .gitattributes na raiz com exatamente:
+       * text=auto
+       *.py   text eol=lf
+       *.md   text eol=lf
+       *.txt  text eol=lf
+       *.toml text eol=lf
+       *.json text eol=lf
+       *.bat  text eol=crlf
+       *.png  binary
+       *.pdf  binary
+     (os .bat precisam de CRLF para funcionar no cmd.exe; o resto é LF.)
+
+1.2  Em src/sarr_core/simulation.py, atualizar SOMENTE estes 3 valores de
+     _FILE_BASELINES (o de config/dashboard.schema.json NÃO muda):
+       "schemas/dashboard.schema.json":
+         cb365b4e840274535eed412f0f964cc40dbe73415b46531b2aeea3e3d01ecf83
+       "schemas/scope.schema.json":
+         b2f3aad232639b1cb426ecdc5e8af20d4f903f630abc3e68d3c93460bc53d82a
+       "config/canary_credentials.json":
+         0e0327a52fce728467937890299c8ae121e19b398c1855445323c6056e3ec9a6
+     ANTES de gravar, confirme cada hash sobre o blob commitado (bytes crus):
+       .venv\Scripts\python.exe -c "import subprocess,hashlib;print(hashlib.sha256(subprocess.check_output(['git','show','HEAD:schemas/scope.schema.json'])).hexdigest())"
+     (repita para os outros dois caminhos). Se algum valor divergir do acima,
+     PARE e relate; não invente hash. Não calcule hash a partir do arquivo do
+     disco se ele estiver em CRLF.
+     Esses hashes aparecem só em simulation.py; confirme com grep que nenhum
+     teste ou doc os repete.
+
+1.3  Criar tests/test_line_endings.py com 2 testes:
+     (a) para cada caminho de _FILE_BASELINES, o arquivo em disco NÃO contém
+         b"\r\n"; mensagem de falha em português explicando que o arquivo
+         precisa estar em LF e como regenerar (git checkout -- <arquivo>
+         após aplicar o .gitattributes);
+     (b) .gitattributes existe e contém as linhas "*.json text eol=lf" e
+         "*.bat text eol=crlf".
+
+1.4  NÃO rode renormalização, nem converta arquivos em massa, nem faça
+     checkout. Ao final da tarefa, imprima para o usuário o passo manual
+     (ver "ENTREGA").
+
+Aceite da etapa: em checkout LF, `-m sarr_core --run-sim` termina COMPLETED
+(saída 0) e os 5 testes de test_security_simulation/test_engine que falhavam
+por hash passam. Em um working tree ainda com CRLF, test_line_endings (a) deve
+falhar com a mensagem orientando o re-checkout — isso é o comportamento certo.
+
+==============================================================================
+ETAPA 2 — FACHADA Engine/EngineState INCOMPLETA
+==============================================================================
+DEFEITO: src/sarr_core/core/engine.py define EngineState sem BLOCKED e sem
+COMPLETED, mas a máquina de estados (core/state_machine.py, RunState) tem
+ambos e o README os documenta como estados do fluxo. Efeito confirmado:
+Engine.state lança ValueError("'COMPLETED' is not a valid EngineState") depois
+de RUNNING -> COMPLETED, e o mesmo para BLOCKED; transition_to() não consegue
+alcançá-los pela fachada pública.
+
+CORREÇÃO:
+2.1  EngineState deve espelhar RunState exatamente (mesmos nomes e valores),
+     incluindo BLOCKED e COMPLETED. Prefira derivar o mapeamento de RunState
+     para não divergir de novo (ex.: _RUN_STATES = {s.value: s for s in
+     RunState}; manter a classe Enum explícita por clareza pública).
+2.2  Adicionar testes em tests/test_engine.py:
+     - {e.value for e in EngineState} == {r.value for r in RunState};
+     - ciclo IDLE->VALIDATING->READY->RUNNING->COMPLETED lê engine.state ==
+       EngineState.COMPLETED e define ended_at_utc;
+     - IDLE->VALIDATING->BLOCKED lê engine.state == EngineState.BLOCKED e
+       BLOCKED->VALIDATING continua permitido (grafo do README);
+     - transições inválidas continuam levantando InvalidStateTransitionError
+       sem alterar o estado.
+2.3  Não mudar o grafo de transições.
+
+==============================================================================
+ETAPA 3 — PAINEL SOC (src/sarr_core/gui.py) EM PORTUGUÊS E MAIS CLARO
+==============================================================================
+Mantenha a estrutura, a thread de trabalho, a fila de mensagens e a lógica de
+postura. Altere só o que está abaixo.
+
+3.1  Textos visíveis (de -> para):
+     Moldura "Findings / Descobertas"                -> "Achados"
+     Moldura "Análise e resposta do finding selecionado"
+                                                     -> "Análise e resposta do achado selecionado"
+     Moldura "Console SIEM / Eventos"                -> "Console SIEM — eventos"
+     Rótulo  "Nmap + Tshark Engine"                  -> "Scanners (Nmap + Tshark)"
+     Botão   "Verificar / Instalar Scanners Externos"-> "Verificar Scanners Externos"
+       (o app NUNCA instala nada; só verifica e mostra instruções manuais)
+     Postura "AUDIT PENDING"        -> "AUDITORIA PENDENTE"
+     Postura "SECURE"               -> "SEGURO"
+     Postura "VULNERABLE"           -> "VULNERÁVEL"
+     Postura "ATTACK / KILL-SWITCH" -> "ATAQUE / KILL-SWITCH"
+     Integridade "VERIFIED"                  -> "VERIFICADO"
+     Integridade "CHECKING"                  -> "VERIFICANDO"
+     Integridade "UNVERIFIED / FAIL-CLOSED"  -> "NÃO VERIFICADO / FAIL-CLOSED"
+     Integridade "RESTORED / HEALED"         -> "RESTAURADO / CORRIGIDO"
+     Scanners "READY — Nmap loopback + Tshark offline"
+                                             -> "PRONTO — Nmap em loopback + Tshark offline"
+     Scanners "FALLBACK — simulação interna ativa"
+                                             -> "ALTERNATIVO — simulação interna ativa"
+     Scanners "NOT CHECKED"                  -> "NÃO VERIFICADO"
+     Scanners "Checking tools..."            -> "Verificando ferramentas..."
+     Linha da tabela de auto-cura: status "RESTORED / HEALED"
+                                             -> "RESTAURADO / CORRIGIDO"
+     Evento "STATUS: RESTORED / HEALED"      -> "STATUS: RESTAURADO / CORRIGIDO"
+     Texto do detalhe da auto-cura (hoje em inglês) ->
+       "Integridade restaurada a partir de uma baseline sombra em memória,
+        verificada por SHA-256. Nenhum byte adulterado foi mantido."
+     Em qualquer mensagem, trocar "finding" por "achado".
+     NÃO alterar os cabeçalhos do detalhe técnico ("Detalhes do Risco (Red
+     Team)", "Passos para Correção (Blue Team)", "Ação de Bloqueio
+     Recomendada", "Evidência observada") — testes dependem deles.
+     NÃO alterar o campo "status": "RESTORED / HEALED" gravado em
+     simulation.py (~linha 505): é dado exportado/legível por máquina.
+
+3.2  Atualizar as asserções de tests/test_gui.py que comparam esses textos
+     (postura nas linhas ~56/60/64; integridade ~94/100; scanners ~129/133)
+     e README.md (linhas ~128–129, nomes das posturas). Em
+     src/core/security_audit.py (~linha 484) trocar "SECURE" por "SEGURO" na
+     frase "Não marcar a postura como SECURE...". Nada além disso.
+
+3.3  Mensagem do painel de análise: criar duas constantes de módulo e usá-las
+     em TODOS os pontos (hoje há duas redações diferentes, no __init__ e em
+     _start_simulation):
+       _DETAIL_VAZIO = ("Nenhuma auditoria executada ainda. Clique em "
+         "\"Executar Varredura de Segurança\" e depois selecione um achado "
+         "para ver o risco (Red Team), a correção (Blue Team) e a ação de "
+         "bloqueio recomendada.")
+       _DETAIL_SELECIONE = ("Selecione um achado na tabela para ver o risco "
+         "(Red Team), a correção (Blue Team) e a ação de bloqueio "
+         "recomendada.")
+     __init__ usa _DETAIL_VAZIO; _start_simulation usa "Auditoria em
+     andamento..."; ao concluir sem achados (e sem linha de auto-cura) mostrar
+     "Nenhum achado nesta auditoria."; ao concluir com achados, a seleção
+     automática do primeiro achado já preenche o detalhe (comportamento atual
+     mantido); _DETAIL_SELECIONE é usado quando a seleção for limpa.
+
+3.4  Console SIEM nunca começa vazio:
+     - no __init__, inserir uma linha INFO: "SARR-Core pronto. Nenhuma
+       auditoria executada.";
+     - em _start_simulation, ao limpar o console, inserir "Auditoria iniciada.";
+     - criar helper _append_console_line(texto, severidade) reutilizado por
+       _append_events; essas linhas NÃO entram em _rendered_event_count.
+
+3.5  Quebra de linha responsiva: o rótulo de mensagem usa wraplength=800
+     fixo. Guardar o rótulo em self._message_label e, com bind("<Configure>")
+     no container, ajustar wraplength = max(320, largura_do_container - 40).
+
+3.6  Cores por severidade na tabela de achados (hoje só o console tem cor):
+     tag_configure no Treeview — CRITICAL "#b42318", WARNING "#a85d00",
+     INFO "#344054". Criar @staticmethod _row_tag_for_severity(severity:str)
+     -> str: "critical" e "high" -> "CRITICAL"; "medium" e "warning" ->
+     "WARNING"; qualquer outro ("low", "info", desconhecido) -> "INFO".
+     Aplicar tags=(tag,) em cada linha inserida. Adicionar teste unitário
+     para _row_tag_for_severity (função pura, sem Tk).
+
+3.7  Não mudar tamanhos mínimos nem layout (root.minsize(860, 620), pesos das
+     linhas). O console NÃO está cortado na janela atual; não mexer nisso.
+
+==============================================================================
+ETAPA 4 — IDIOMA DOS RESUMOS DOS ACHADOS (CLI, EXPORTS, FALLBACK DA GUI)
+==============================================================================
+DEFEITO: finding.summary está em inglês em src/core/security_audit.py (vetor,
+remediação e bloqueio já estão em português). Isso aparece na CLI, nos
+relatórios exportados e no fallback da GUI.
+
+CORREÇÃO: traduzir para pt-BR os summary= de src/core/security_audit.py
+(~linhas 232, 287, 356, 384, 419, 470, 497, 541, 573, 610, 666, 738, 780 —
+abra cada ocorrência; algumas são multilinha/f-string; preserve os
+placeholders {relative_path}, {technique}, {reason}). Exemplos de tom:
+  "Project file hash differs from the supplied baseline."
+    -> "O hash do arquivo do projeto difere da baseline informada."
+  "Canary decoy file was {reason}."  -> "O arquivo-isca (canary) foi {reason}."
+     (se {reason} vier em inglês, traduzir também os valores de reason.)
+  "File is writable by group or all users."
+    -> "O arquivo permite escrita por grupo ou por todos os usuários."
+  "Windows ACL permissions were not verified."
+    -> "As permissões ACL do Windows não foram verificadas."
+Não alterar event_name, severity, mitre_id, evidence nem as chaves das
+estruturas exportadas. Rode a suíte: nenhum teste hoje depende dos textos em
+inglês; se algum falhar, relate (R6).
+
+==============================================================================
+ETAPA 5 — TESTES NÃO DEVEM QUEBRAR POR FALTA DE TKINTER
+==============================================================================
+tests/test_gui.py importa tkinter no topo e tests/test_engine.py
+(test_gui_command_dispatches_to_gui_entry_point) importa a GUI. Sem tkinter o
+resultado é ERROR, não SKIP.
+Correção: em ambos, detectar com importlib.util.find_spec("tkinter") e usar
+unittest.skipUnless(...) (no test_gui.py, proteger também o import de
+sarr_core.gui). Em ambiente COM tkinter (Windows normal) tudo roda como hoje.
+
+==============================================================================
+ETAPA 6 — DOCUMENTAÇÃO E ORGANIZAÇÃO DO REPOSITÓRIO
+==============================================================================
+Antes de mover/apagar qualquer arquivo, rode grep -rn pelo nome dele em
+README.md, release-checklist.md, tests/, src/, scripts/ e pyproject.toml; se
+houver referência, atualize-a.
+6.1  Os dois PDFs "Plano_Implementacao_SARR_Core_Engine.pdf" e
+     "Plano_Implementacao_SARR_Core_Engine (1).pdf" são idênticos (MD5
+     8a96e894cbf6a9d2baa346d78057a165). Confirme o MD5 e então remova SOMENTE
+     o "(1)" com `git rm`.
+6.2  Criar docs/ e mover (git mv): "Documento de Arquitetura, Casos de Uso e
+     Fluxogramas.pdf", "Plano_Implementacao_SARR_Core_Engine.pdf",
+     "arquitetura.txt" -> docs/arquitetura.txt, e "PROJETO HACKER.txt" ->
+     docs/fluxograma-inicializacao.txt (nome neutro; o projeto é defensivo).
+     Pasta PROMPTS/ permanece onde está.
+6.3  assets/"Captura de tela 2026-10-29 115327.png" -> git mv para
+     assets/painel-soc.png.
+6.4  README.md: (a) substituir a 1ª linha "Estrutura inicial do SARR-Core
+     Engine." por um parágrafo "O que é" de 3 linhas (plataforma defensiva,
+     local e fail-closed de diagnóstico, telemetria e auditoria; simulação em
+     127.0.0.1; sem varredura ao vivo) e uma seção "Início rápido" com os 3
+     comandos: criar venv, scripts\setup_windows.bat, python -m sarr_core
+     --gui; (b) inserir a imagem assets/painel-soc.png na seção da GUI;
+     (c) trocar a menção a `smoke_test.py` (~linha 93) por
+     `tests/test_smoke.py`; (d) acrescentar seção curta "Fins de linha":
+     arquivos de baseline são LF (.gitattributes); .bat são CRLF; se o
+     painel acusar hash divergente logo após clonar, verifique isso.
+6.5  release-checklist.md: trocar "75 testes" pela contagem REAL obtida na
+     ETAPA 7; trocar `tests.smoke_test` por `tests.test_smoke` e
+     `smoke_test.py` por `tests/test_smoke.py`. Manter os itens não marcados
+     como não marcados e o veredito "GO condicionado" inalterado.
+6.6  pyproject.toml: apenas description = "Plataforma defensiva local de
+     diagnóstico, telemetria e auditoria (fail-closed)". Nada mais.
+
+==============================================================================
+ETAPA 7 — VERIFICAÇÃO FINAL
+==============================================================================
+7.1  Suíte completa: 0 falhas, 0 erros (skips só se tkinter ausente).
+7.2  .venv\Scripts\python.exe -m sarr_core --run-sim  -> "Estado final:
+     COMPLETED", saída 0. Depois, para cada cenário de risco do README
+     (unauthorized-port, porta_desprotegida, permissao_frouxa, hash_adulterado,
+     obfuscation, persistence, canary-access, ghost-port): estado BLOCKED,
+     saída 2, e resumo em português.
+7.3  .venv\Scripts\python.exe -m sarr_core --gui abre o painel: estado IDLE,
+     "AUDITORIA PENDENTE", console com a linha inicial, painel de análise com
+     _DETAIL_VAZIO, botão "Verificar Scanners Externos". (Se não houver
+     display, descreva o que foi verificado por teste.)
+7.4  git status / git diff --stat: só devem aparecer .gitattributes,
+     simulation.py (3 hashes), engine.py, gui.py, security_audit.py, testes,
+     README.md, release-checklist.md, pyproject.toml e as movimentações da
+     ETAPA 6. Qualquer outro arquivo alterado = erro; reverta só o seu
+     próprio edit.
+
+==============================================================================
+ENTREGA (formato da sua resposta)
+==============================================================================
+1. Uma lista por etapa: o que mudou (arquivo + função/linha) e o resultado dos
+   testes naquela etapa (totais).
+2. Saída final da suíte (totais) e do --run-sim.
+3. O que NÃO foi feito e por quê.
+4. Imprimir este passo manual para o usuário executar no PowerShell (você NÃO
+   o executa), porque o working tree do Windows ainda está em CRLF:
+     git add .gitattributes
+     git add --renormalize .
+     git commit -m "fix: fixa LF nas baselines e corrige hashes; painel em pt-BR"
+     Remove-Item schemas\dashboard.schema.json, schemas\scope.schema.json, config\canary_credentials.json, config\dashboard.schema.json
+     git checkout -- schemas/dashboard.schema.json schemas/scope.schema.json config/canary_credentials.json config/dashboard.schema.json
+     .venv\Scripts\python.exe -m unittest discover -s tests -p "*test*.py"

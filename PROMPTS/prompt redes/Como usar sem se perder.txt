@@ -1,0 +1,14 @@
+Cole o prompt mestre, espere a confirmação das regras e só então rode a Fase 0.
+A cada fase: pytest, depois git commit, depois “próxima fase”.
+Se o Copilot propuser mudar um contrato, me traga a proposta antes de aceitar.
+
+
+Checklist manual (o Copilot não faz isso)
+Descrição do repositório em uma linha, por exemplo: “Detecção e mitigação de port scan e SYN flood com telemetria Prometheus e dashboard Grafana”.
+Topics: network-security, python, docker, prometheus, grafana, scapy, purple-team, observability.
+Fixar o repositório (Pin) no seu perfil do GitHub.
+Gravar o GIF do Grafana durante o ataque simulado (ScreenToGif no Windows funciona bem) e salvar em docs/img/.
+Criar a release v1.0.0 com um resumo curto. Isso passa a imagem de projeto concluído.
+Colocar o link do repositório no currículo e no LinkedIn, com uma frase do que o projeto prova.
+
+Um repositório com README claro, CI verde e demo reproduzível passa mais confiança do que um com muito código e pouca explicação. E o que o recrutador não consegue rodar em poucos minutos, quase sempre ele não avalia.

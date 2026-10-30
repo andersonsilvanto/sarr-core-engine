@@ -1,0 +1,23 @@
+FASE 7 — VITRINE PARA O RECRUTADOR (GitHub)
+Contexto: o SARR-Core Engine é um projeto de portfólio. Quem avalia dá 30
+segundos ao README e, se gostar, explora mais. Use o README da Fase 6 como
+base e REORGANIZE, não reescreva do zero.
+
+REGRA DE OURO: não invente nada. Todo número, resultado ou capacidade citada
+precisa vir de algo que o projeto realmente faz ou de uma medição executada
+agora.
+
+1) README.md (inglês) e README.pt-BR.md (português), com links cruzados no
+   topo. Estrutura: título + badges; "Em 30 segundos"; demo (GIF/screenshot
+   do Grafana); quick start em até 3 comandos; arquitetura (Mermaid);
+   tabela "O que este projeto demonstra" (competência → onde no código);
+   resultados de validação (tabela ataque simulado vs. detectado); decisões
+   de projeto; limitações e roadmap; aviso de uso ético.
+2) Pasta docs/: ARCHITECTURE.md, THREAT_MODEL.md, DEMO.md,
+   CONFIGURATION.md.
+3) LICENSE (MIT, salvo eu dizer outra), SECURITY.md, CI (pytest + lint),
+   templates de issue, .gitignore limpo (sem segredos).
+4) Rode o quick start do zero em pasta limpa, valide links internos, remova
+   qualquer afirmação não comprovada.
+Entregue tudo e termine com um checklist do que eu preciso fazer manualmente
+no GitHub (descrição, topics, pin do repositório, release v1.0.0).

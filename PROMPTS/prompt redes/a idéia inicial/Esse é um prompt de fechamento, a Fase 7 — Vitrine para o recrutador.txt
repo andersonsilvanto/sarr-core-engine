@@ -1,0 +1,52 @@
+FASE 7 — VITRINE PARA O RECRUTADOR (GitHub)
+Contexto: o SARR-Core Engine é um projeto de portfólio. Quem vai avaliar é um
+recrutador ou líder técnico que dá 30 segundos ao README e, se gostar, explora mais.
+Objetivo: deixar o repositório claro, verificável e profissional. Use o README da
+Fase 6 como base e REORGANIZE, não reescreva do zero.
+
+REGRA DE OURO: não invente nada. Todo número, resultado ou capacidade citada precisa
+vir de algo que o projeto realmente faz ou de uma medição que você executou agora. Se
+algo não existe, não cite. Prefira o que dá para reproduzir.
+
+1) README.md (inglês) e README.pt-BR.md (português), com links cruzados no topo.
+   Estrutura, nesta ordem:
+   a) Título, uma frase de impacto e badges (CI, Python, licença, Docker).
+   b) "Em 30 segundos": 3 a 4 linhas respondendo o que é, que problema resolve e o que
+      prova sobre quem construiu.
+   c) Demo: espaço para GIF/screenshot do Grafana reagindo ao ataque simulado, com
+      legenda (deixe o caminho docs/img/ e um comentário dizendo qual captura gravar).
+   d) Quick start em no máximo 3 comandos (git clone, docker compose up, rodar o
+      simulador), e o que a pessoa deve ver ao final.
+   e) Arquitetura: diagrama Mermaid (captura → detecção → mitigação → telemetria →
+      Prometheus → Grafana) e a topologia das redes Docker.
+   f) Tabela "O que este projeto demonstra": coluna Competência (TCP/IP, firewall,
+      redes Docker, observabilidade, testes, CI) e coluna Onde no código (caminho do
+      arquivo), para o recrutador conferir.
+   g) Resultados de validação: tabela "ataque simulado vs. detectado" gerada pelo
+      relatório do simulador, com a data e a configuração usada.
+   h) Decisões de projeto: 4 a 6 linhas sobre por que dry-run por padrão, por que
+      allowlist, por que TTL no bloqueio, o que é fail-closed.
+   i) Limitações conhecidas e roadmap (honesto e curto).
+   j) Aviso de uso ético e legal.
+
+2) Pasta docs/:
+   - ARCHITECTURE.md: componentes, contratos C1–C5, fluxo de dados.
+   - THREAT_MODEL.md: o que o motor detecta, o que NÃO detecta, possíveis falsos
+     positivos, riscos de a própria mitigação causar indisponibilidade e como as travas
+     reduzem isso.
+   - DEMO.md: roteiro passo a passo de 2 minutos para reproduzir a demo.
+   - CONFIGURATION.md: tabela de todos os parâmetros do config.yaml.
+
+3) Arquivos de repositório:
+   - LICENSE (MIT, a menos que eu diga outra).
+   - SECURITY.md: política de uso ético e como reportar problemas.
+   - .github/workflows/ci.yml (pytest + lint) se ainda não existir, para o badge ser real.
+   - Modelos de issue simples (bug e sugestão).
+   - .gitignore e limpeza: remova segredos, caminhos locais e arquivos temporários.
+
+4) Qualidade final (execute e me mostre o resultado):
+   - Rode o quick start do zero em pasta limpa e confirme que funciona.
+   - Valide que todos os links internos do README existem.
+   - Liste qualquer afirmação do README que você não conseguiu comprovar e remova.
+
+Entregue tudo e termine com um checklist do que eu preciso fazer manualmente no GitHub.

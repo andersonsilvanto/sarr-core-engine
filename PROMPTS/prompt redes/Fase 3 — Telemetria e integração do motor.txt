@@ -1,0 +1,10 @@
+FASE 3 (contrato C3). Implemente o TelemetryExporter com prometheus_client e
+as métricas: sarr_packets_analyzed_total (Counter), sarr_events_total{kind}
+(Counter), sarr_ips_blocked_total (Counter), sarr_inspection_latency_seconds
+(Gauge/Histogram), sarr_failclosed_active (Gauge 0/1),
+sarr_suspicious_connections{src_ip} (Gauge, só top N IPs, para não explodir
+cardinalidade).
+Conecte captura → detecção → mitigação → telemetria no engine, com CLI:
+--config, --mode {live,pcap,synthetic}, --dry-run/--enforce.
+Teste que cada evento e bloqueio atualiza a métrica certa.
+Pare aqui e aguarde "próxima fase".

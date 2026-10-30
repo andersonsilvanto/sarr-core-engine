@@ -1,0 +1,99 @@
+FASE 8 — RADAR PASSIVO MULTI-CAMADA (Wi-Fi/BLE)
+Escopo fixo, sem exceção: captura SOMENTE passiva de sinais já presentes no
+ar. Proibido: modo monitor, desautenticação, injeção de pacotes, conexão,
+pareamento ou escrita em qualquer dispositivo de terceiros. Roda apenas no
+host do autor. Reaproveita os contratos C1 e C3 já existentes.
+
+Princípio de controle: wifi.enabled e ble.enabled são um PORTÃO único.
+Desligado = corte total: nenhuma varredura roda, nenhum dado é coletado,
+nenhuma métrica sarr_wifi_*/sarr_ble_* aparece no /metrics (ausente, não
+zerada). O operador liga e desliga explicitamente pela CLI; a decisão nunca
+é automática nem fica "lembrada" entre sessões sem o operador ver o estado.
+
+Faça as 4 sub-fases UMA POR VEZ, nesta ordem: 8.1 → 8.2 → 8.3 → 8.4. Ao fim
+de cada uma: pare, mostre o que foi criado/alterado, como testar, e espere
+"próxima fase".
+
+SUB-FASE 8.1 — Permissão de localização, varredura Wi-Fi e rogue AP
+- Crie src/sarr/location_permission.py:
+  * check_location_enabled() -> bool: leitura (somente leitura) via winreg da
+    chave HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\
+    CapabilityAccessManager\\ConsentStore\\location, valor "Value".
+  * request_enable_location() -> bool: só é chamada após confirmação explícita
+    do usuário na CLI. Executa via subprocess chamando powershell com
+    Start-Process -Verb RunAs, disparando o UAC real do Windows (nunca
+    escrever direto na chave sem elevação, nunca ocultar o prompt do UAC).
+    Loga timestamp, usuário do SO e resultado (aceito/recusado/erro).
+- Crie src/sarr/wifi_scanner.py: varredura via comando nativo do SO (netsh
+  wlan show networks mode=bssid no Windows; nmcli/iwlist como alternativa
+  Linux), sem bibliotecas de modo monitor. Extrai SSID, BSSID (se permitido),
+  RSSI, canal. config.yaml ganha seção wifi.trusted_aps: lista de
+  {ssid, bssid}.
+- Estado da feature: wifi_status = "disabled" | "enabled_no_location" |
+  "enabled_full". Em "disabled", o scanner nem é instanciado. Em
+  "enabled_no_location" (usuário ligou a função mas recusou localização ou
+  ela está indisponível), coleta só SSID/RSSI, sem checagem de rogue AP (que
+  depende de BSSID para ser confiável). Em "enabled_full", BSSID disponível
+  e o rogue-AP check roda: SSID confiável com BSSID fora da lista emite
+  SecurityEvent(kind="ROGUE_AP") pelo contrato C1.
+- CLI: comando "sarr wifi on" pergunta sobre localização ("Ativar localização
+  para detectar o BSSID? [s/N]"), muda o estado, loga "Wi-Fi radar ATIVADO
+  por <usuário> às <hora>" (e idem para location). Comando "sarr wifi off"
+  para a thread imediatamente, limpa os dados da sessão em memória, loga
+  "Wi-Fi radar DESATIVADO — nenhum dado será coletado até reativação".
+- Testes: mock do winreg (permissão ligada/desligada/chave ausente), mock do
+  subprocess/UAC (aceito/recusado/erro), mock da saída do comando do SO
+  (AP confiável, rogue AP, rede desconhecida sem alerta), e confirmação de
+  que em "disabled" o scanner nunca é chamado.
+Pare aqui e aguarde "próxima fase".
+
+SUB-FASE 8.2 — Descoberta BLE passiva
+- Crie src/sarr/ble_scanner.py usando a biblioteca bleak (multiplataforma).
+  Descoberta passiva apenas: sem connect(), sem pareamento, sem
+  leitura/escrita de característica.
+- Registrar dispositivos por endereço MAC/UUID, com timestamp de primeira e
+  última vez visto. Config: ble.enabled (mesmo portão liga/desliga de 8.1),
+  ble.alert_on_new_device (bool), ble.known_devices (allowlist opcional).
+- Se ble.enabled e alert_on_new_device=true e o dispositivo não está em
+  known_devices, emitir SecurityEvent(kind="BLE_UNKNOWN_DEVICE").
+- CLI: "sarr ble on/off" com o mesmo padrão de log e limpeza de dados da
+  sessão descrito em 8.1 para Wi-Fi.
+- Testes com mock do bleak; confirmar que em ble.enabled=false o scanner
+  nunca é chamado.
+Pare aqui e aguarde "próxima fase".
+
+SUB-FASE 8.3 — Integração com telemetria e engine
+- Estenda o TelemetryExporter (contrato C3) com: sarr_wifi_networks_seen
+  (Gauge), sarr_wifi_rogue_ap_detected (Counter), sarr_ble_devices_seen
+  (Gauge), sarr_ble_unknown_device_total (Counter). Crie uma porta única
+  is_feature_active(name: Literal["wifi","ble"]) -> bool em config.py; todo o
+  resto do código consulta essa função, nunca lê config.yaml diretamente em
+  mais de um lugar.
+- Quando uma feature está "disabled", suas métricas não existem no /metrics
+  (ausentes, não zeradas) — é o jeito auditável de provar que desligado é
+  corte total.
+- No engine.py, os scanners rodam como fontes opcionais em thread própria,
+  com intervalo de varredura configurável, sem interferir no pipeline TCP/IP
+  já existente.
+- Teste de integração: ativar com mocks e confirmar que eventos chegam ao
+  exporter; testar liga→desliga→liga em sequência e confirmar que não sobra
+  dado residual da execução anterior.
+Pare aqui e aguarde "próxima fase".
+
+SUB-FASE 8.4 — Painel "Radar SARR" no Grafana
+- Estenda o dashboard.json existente (não crie um novo arquivo): seção
+  "Radar Wi-Fi/BLE" ao lado dos painéis TCP/IP, usando só as métricas de
+  8.3. Painéis: tabela de SSIDs vistos (nome, RSSI, status
+  confiável/rogue), alerta visual quando sarr_wifi_rogue_ap_detected > 0,
+  contador de dispositivos BLE vistos na última hora, lista dos últimos
+  dispositivos BLE desconhecidos.
+- Quando a feature estiver "disabled", o painel mostra um estado neutro
+  ("Desativado pelo operador"), não um gráfico vazio ou zerado.
+- README: nova seção "Radar Wi-Fi/BLE (passivo)" explicando que o módulo só
+  escuta o que já está no ar, nunca ataca nem interage com dispositivos de
+  terceiros, exige ativação explícita do operador (sarr wifi/ble on), e que
+  desligar corta a coleta por completo. Adicione wifi.enabled/ble.enabled na
+  tabela de configuração.
+Pare aqui. Ao final, resuma: todos os contratos (C1, C3) continuam
+respeitados, nenhum código de ataque foi introduzido, e confirme que o
+gating liga/desliga foi testado nos três módulos (Wi-Fi, BLE, telemetria).

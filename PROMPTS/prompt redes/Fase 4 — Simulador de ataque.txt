@@ -1,0 +1,8 @@
+FASE 4 (contrato C4). Crie o simulador: tráfego legítimo alternado com
+rajadas de port scan e SYN flood, com intensidade e duração configuráveis.
+- Travas éticas: aceitar apenas loopback ou RFC1918 listados em allowlist,
+  exigir --i-own-this-lab, limitar taxa máxima e recusar qualquer alvo
+  público.
+- Ao final, gerar relatório "esperado vs. detectado" lendo as métricas do
+  exporter.
+Pare aqui e aguarde "próxima fase".

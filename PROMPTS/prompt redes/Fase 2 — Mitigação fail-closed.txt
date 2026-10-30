@@ -1,0 +1,10 @@
+FASE 2 (contrato C2, consome C1). Implemente a interface Mitigator com
+DryRunMitigator (padrão), IptablesMitigator (cadeia própria SARR_BLOCK,
+subprocess com lista de argumentos, operações idempotentes) e
+DockerMitigator (isola o container via SDK do Docker).
+- Travas: allowlist que nunca é bloqueada (gateway, loopback, IP do host,
+  gestão), TTL com desbloqueio automático, limite de bloqueios simultâneos,
+  rollback no shutdown limpo.
+- Implemente a política fail-closed conforme a semântica do prompt mestre.
+- Testes com mock; nunca executar iptables real nos testes.
+Pare aqui e aguarde "próxima fase".

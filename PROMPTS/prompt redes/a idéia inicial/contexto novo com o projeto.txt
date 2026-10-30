@@ -1,0 +1,22 @@
+Com esses 5 prompts em mãos, temos o mapa completo para construir o projeto do início ao fim:
+
+Detecção Heurística (Módulo de captura e análise de tráfego)
+Mitigação Fail-Closed (Automação de bloqueio/firewall)
+Telemetry Exporter (Métricas nativas para o Prometheus)
+Simulador de Ataque (Para testes e validação da defesa)
+Dashboard & Dashboarding (Visualização no Grafana e README profissional) Aqui estão algumas ideias de módulos e abordagens para transformar esse conceito em prompts práticos de desenvolvimento:
+Módulo de Detecção Heurística de Port Scan e Syn Flood
+Conceito: Em vez de analisar apenas pacotes isolados, criar um algoritmo em Python que calcula a frequência de requisições por IP de origem em janelas de tempo deslizantes.
+Ideia de Prompt: "Escreva um módulo em Python usando Scapy que mantenha um contador na memória de requisições TCP SYN recebidas. Se um IP único fizer requisições a mais de X portas em um intervalo de Y segundos, sinalize como Port Scan e retorne uma estrutura de dados de evento de segurança."
+Automação de Regras de Firewall (Ação Fail-Closed Prática)
+Conceito: Quando o motor detectar o ataque, ele precisa agir na camada de sistema operacional ou na rede Docker.
+Ideia de Prompt: "Crie uma classe em Python para gerenciar ações de mitigação do motor Fail-Closed. Ela deve interagir com as regras do iptables no Linux ou disparar chamadas para a API do Docker para isolar a rede do container comprometido."
+Exportador de Métricas de Rede Personalizado (Prometheus Exporter)
+Conceito: Transformar os eventos de rede capturados em métricas compatíveis com o formato do Prometheus.
+Ideia de Prompt: "Desenvolva uma classe TelemetryExporter usando a biblioteca oficial do Prometheus em Python. Crie métricas do tipo Counter para pacotes analisados, Counter para IPs bloqueados e Gauge para a latência de inspeção do motor."
+Gerador de Tráfego de Teste / Simulator de Ataque (Red Team Interno)
+Conceito: Para provar no repositório que o projeto funciona, você precisa de um script cliente que simule o tráfego e o ataque para testar a reação do motor.
+Ideia de Prompt: "Crie um script em Python para testes de estresse que simule tráfego de rede legítimo alternado com rajadas de solicitações TCP maliciosas, permitindo validar a resposta do sarr-core-engine e a atualização das métricas no Grafana."
+Documentação da Arquitetura e Dashboard (README / Grafana)
+Conceito: Estruturar um painel no Grafana em JSON ou documentar a topologia de rede no README.md.
+Ideia de Prompt: "Gere a estrutura em JSON de um dashboard do Grafana com painéis para monitorar pacotes inspecionados por segundo, gráfico de conexões suspeitas por IP e indicador de status da regra Fail-Closed (Ativo/Bloqueado)." crie um unico prompt que envolva tudo isso de uma unica vez , o que acha dessa idiea junto com o projeto

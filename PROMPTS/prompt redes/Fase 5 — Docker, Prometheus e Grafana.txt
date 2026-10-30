@@ -1,0 +1,7 @@
+FASE 5 (contrato C5). Crie docker-compose com sarr-engine (NET_ADMIN/NET_RAW
+só onde necessário), simulator (profile separado), prometheus e grafana em
+rede isolada. Crie prometheus.yml e um dashboard Grafana provisionado com:
+pacotes inspecionados/s, eventos por tipo, top IPs suspeitos, IPs bloqueados
+ao longo do tempo, latência de inspeção e indicador Ativo/Bloqueado do
+fail-closed. Use somente as métricas do contrato C3.
+Pare aqui e aguarde "próxima fase".
