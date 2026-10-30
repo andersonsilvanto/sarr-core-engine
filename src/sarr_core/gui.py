@@ -4,7 +4,7 @@ import json
 import queue
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, font, messagebox, ttk
 from typing import Callable
 
 from core.security_audit import SecurityFinding
@@ -185,6 +185,10 @@ class LocalDashboard:
         style.configure("Posture.VULNERABLE.TLabel", foreground="#a85d00")
         style.configure("Posture.ATTACK.TLabel", foreground="#b42318")
         style.configure("Posture.PENDING.TLabel", foreground="#475467")
+        style.configure(
+            "Treeview",
+            rowheight=int(font.nametofont("TkDefaultFont").metrics("linespace") * 1.4),
+        )
         self._posture = tk.StringVar(value="AUDITORIA PENDENTE")
         self._hardening_score = tk.StringVar(value="Índice de proteção: —/100")
         ttk.Label(
