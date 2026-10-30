@@ -111,11 +111,9 @@ class WirelessInventoryImportTests(unittest.TestCase):
         with self.assertRaisesRegex(InventoryImportError, "read-only"):
             self.ble_adapter.import_file(self.write_json(document))
 
-    def test_live_os_radio_collection_is_an_explicit_unsupported_stub(self) -> None:
-        for adapter in (self.wifi_adapter, self.ble_adapter):
-            with self.subTest(adapter=type(adapter).__name__):
-                with self.assertRaises(LocalAdapterUnavailableError):
-                    adapter.collect_from_os()
+    def test_live_ble_radio_collection_is_an_explicit_unsupported_stub(self) -> None:
+        with self.assertRaises(LocalAdapterUnavailableError):
+            self.ble_adapter.collect_from_os()
 
     def test_import_rejects_duplicate_json_keys(self) -> None:
         source = self.write_json({})

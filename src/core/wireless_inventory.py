@@ -1,18 +1,29 @@
-"""Passive importers for explicitly authorized Wi-Fi and BLE inventory files.
+"""Passive inventories for explicitly authorized Wi-Fi and BLE targets.
 
-These adapters only read local JSON files. They do not enumerate radio devices,
-open sockets, scan, associate, pair, read live GATT characteristics, or transmit.
+Both adapters import consented local JSON files. ``WifiInventoryAdapter`` can
+also read the operating system's cached Wi-Fi listing (``nmcli --rescan no`` or
+``netsh wlan show networks``). It never requests a rescan, enables monitor
+mode, associates, deauthenticates, injects, or transmits. The BLE adapter does
+not enumerate radios or read live GATT characteristics.
 """
 
 import json
 import re
+import shutil
+import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import TYPE_CHECKING, Callable, Mapping, Sequence
 from uuid import UUID
 
+from core.events import Event, EventBus
 from core.redaction import sanitize_text
+from core.scope_validator import ScopeValidationError
+
+if TYPE_CHECKING:
+    from core.orchestrator import CoreOrchestrator
 
 
 _MAC_ADDRESS = re.compile(r"^[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}$")
@@ -22,6 +33,28 @@ _MAX_INVENTORY_BYTES = 1_048_576
 _MAX_DEVICES = 1_000
 _MAX_SERVICES_PER_DEVICE = 64
 _MAX_CHARACTERISTICS_PER_SERVICE = 128
+_OS_COMMAND_TIMEOUT_SECONDS = 15
+_NMCLI_COMMAND = (
+    "nmcli",
+    "--terse",
+    "--escape",
+    "yes",
+    "--fields",
+    "BSSID,SSID,CHAN,SIGNAL,SECURITY",
+    "device",
+    "wifi",
+    "list",
+    "--rescan",
+    "no",
+)
+_NETSH_COMMAND = ("netsh", "wlan", "show", "networks", "mode=bssid")
+_NETSH_SSID_LINE = re.compile(r"^SSID\s+\d+\s*:\s?(.*)$")
+_NETSH_BSSID_LINE = re.compile(r"^\s+BSSID\s+\d+\s*:\s*(\S+)\s*$")
+_NETSH_FIELD_LINE = re.compile(r"^\s+([^:]+?)\s*:\s*(.*?)\s*$")
+
+WIFI_INVENTORY_EVENT = "network.wifi.inventory_collected"
+
+CommandRunner = Callable[[Sequence[str]], str]
 
 
 class InventoryImportError(ValueError):
@@ -244,14 +277,7 @@ class _AuthorizedInventoryImporter:
             raise InventoryImportError(
                 "Authorization validity end must follow its start."
             )
-        now = self._clock()
-        if (
-            not isinstance(now, datetime)
-            or now.tzinfo is None
-            or now.utcoffset() != timedelta(0)
-        ):
-            raise ValueError("clock must return a timezone-aware UTC datetime.")
-        now = now.astimezone(timezone.utc)
+        now = self._now()
         if not valid_from <= now <= valid_until:
             raise InventoryImportError("Authorization is not currently valid.")
         return InventoryAuthorization(
@@ -263,18 +289,108 @@ class _AuthorizedInventoryImporter:
             activity=self.ACTIVITY,
         )
 
-    def collect_from_os(self) -> None:
-        """Explicitly unsupported: this importer never probes local radios."""
-        raise LocalAdapterUnavailableError(
-            "OS radio enumeration is not implemented. Import an authorized "
-            "local inventory file instead."
-        )
+    def _now(self) -> datetime:
+        now = self._clock()
+        if (
+            not isinstance(now, datetime)
+            or now.tzinfo is None
+            or now.utcoffset() != timedelta(0)
+        ):
+            raise ValueError("clock must return a timezone-aware UTC datetime.")
+        return now.astimezone(timezone.utc)
+
+    def assert_authorization_current(
+        self, authorization: InventoryAuthorization | None
+    ) -> InventoryAuthorization:
+        """Re-check an already loaded authorization record at time of use."""
+        if not isinstance(authorization, InventoryAuthorization):
+            raise InventoryImportError(
+                "A loaded authorization record is required before collection."
+            )
+        if authorization.activity != self.ACTIVITY:
+            raise InventoryImportError(
+                "Authorization does not permit this passive inventory activity."
+            )
+        if (
+            not isinstance(authorization.allowed_targets, frozenset)
+            or not authorization.allowed_targets
+        ):
+            raise InventoryImportError(
+                "Authorization allowed_targets must be a non-empty allowlist."
+            )
+        if not (
+            authorization.valid_from_utc
+            <= self._now()
+            <= authorization.valid_until_utc
+        ):
+            raise InventoryImportError("Authorization is not currently valid.")
+        return authorization
 
 
 class WifiInventoryAdapter(_AuthorizedInventoryImporter):
-    """Import passive 802.11 observations from a consented local JSON file."""
+    """Passive 802.11 inventory from a consented JSON file or the OS cache."""
 
     ACTIVITY = "wifi_passive_inventory"
+
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        command_runner: CommandRunner | None = None,
+        platform: str | None = None,
+    ) -> None:
+        super().__init__(clock=clock)
+        self._command_runner = command_runner or _run_os_command
+        self._platform = platform or sys.platform
+
+    def collect_from_os(self, authorization: InventoryAuthorization) -> WifiInventory:
+        """Read the OS cached Wi-Fi listing, keeping only allowlisted BSSIDs.
+
+        Produces the same ``WifiInventory`` structure as ``import_file``.
+        Observations outside the authorization allowlist, and hidden SSIDs,
+        are dropped before any record is built.
+        """
+        inventory, _ = self._collect_from_os(authorization)
+        return inventory
+
+    def _collect_from_os(
+        self, authorization: InventoryAuthorization
+    ) -> tuple[WifiInventory, int]:
+        self.assert_authorization_current(authorization)
+        if self._platform.startswith("linux"):
+            observations = _parse_nmcli_output(self._command_runner(_NMCLI_COMMAND))
+        elif self._platform == "win32":
+            observations = _parse_netsh_output(self._command_runner(_NETSH_COMMAND))
+        else:
+            raise LocalAdapterUnavailableError(
+                f"Passive Wi-Fi listing is not supported on {self._platform!r}."
+            )
+        observed_at = self._now()
+        selected: dict[str, WifiAccessPoint] = {}
+        discarded = 0
+        for raw_bssid, raw_ssid, raw_channel, raw_signal, raw_security in observations:
+            bssid = raw_bssid.strip().lower()
+            if (
+                not _MAC_ADDRESS.fullmatch(bssid)
+                or bssid not in authorization.allowed_targets
+                or not raw_ssid.strip()
+            ):
+                discarded += 1
+                continue
+            access_point = WifiAccessPoint(
+                bssid=bssid,
+                ssid=_require_string(raw_ssid, "SSID", max_length=32),
+                channel=_parse_os_channel(raw_channel),
+                rssi_dbm=_signal_percent_to_dbm(raw_signal),
+                security=_classify_os_security(raw_security),
+                observed_at_utc=observed_at,
+            )
+            current = selected.get(bssid)
+            if current is None or access_point.rssi_dbm > current.rssi_dbm:
+                selected[bssid] = access_point
+        self.assert_authorization_current(authorization)
+        access_points = tuple(selected[bssid] for bssid in sorted(selected))
+        return WifiInventory(authorization, access_points), discarded
 
     def import_file(self, source: str | Path) -> WifiInventory:
         document = self._read_document(source)
@@ -354,6 +470,13 @@ class BluetoothGattInventoryAdapter(_AuthorizedInventoryImporter):
     """
 
     ACTIVITY = "ble_gatt_inventory_readonly"
+
+    def collect_from_os(self) -> None:
+        """Explicitly unsupported: this importer never probes local radios."""
+        raise LocalAdapterUnavailableError(
+            "OS radio enumeration is not implemented. Import an authorized "
+            "local inventory file instead."
+        )
 
     def import_file(self, source: str | Path) -> BleGattInventory:
         document = self._read_document(source)
@@ -469,3 +592,235 @@ class BluetoothGattInventoryAdapter(_AuthorizedInventoryImporter):
             targets=targets,
         )
         return BleGattInventory(authorization, tuple(devices))
+
+
+def _run_os_command(command: Sequence[str]) -> str:
+    executable = shutil.which(command[0])
+    if executable is None:
+        raise LocalAdapterUnavailableError(
+            f"{command[0]} is not available for passive Wi-Fi listing."
+        )
+    try:
+        result = subprocess.run(
+            [executable, *command[1:]],
+            check=False,
+            capture_output=True,
+            timeout=_OS_COMMAND_TIMEOUT_SECONDS,
+            shell=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise LocalAdapterUnavailableError(
+            f"{command[0]} could not complete the passive Wi-Fi listing."
+        ) from error
+    if result.returncode != 0:
+        raise LocalAdapterUnavailableError(
+            f"{command[0]} exited with status {result.returncode}."
+        )
+    if len(result.stdout) > _MAX_INVENTORY_BYTES:
+        raise InventoryImportError("OS Wi-Fi listing exceeds the 1 MiB limit.")
+    return result.stdout.decode("utf-8", errors="replace")
+
+
+def _split_nmcli_terse(line: str) -> list[str]:
+    fields: list[str] = []
+    current: list[str] = []
+    escaped = False
+    for character in line:
+        if escaped:
+            current.append(character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == ":":
+            fields.append("".join(current))
+            current = []
+        else:
+            current.append(character)
+    fields.append("".join(current))
+    return fields
+
+
+def _parse_nmcli_output(output: str) -> list[tuple[str, str, str, str, str]]:
+    observations: list[tuple[str, str, str, str, str]] = []
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        fields = _split_nmcli_terse(line)
+        if len(fields) != 5:
+            raise InventoryImportError("Unexpected nmcli Wi-Fi listing format.")
+        observations.append((fields[0], fields[1], fields[2], fields[3], fields[4]))
+        if len(observations) > _MAX_DEVICES:
+            raise InventoryImportError("OS Wi-Fi listing exceeds the device limit.")
+    return observations
+
+
+def _parse_netsh_output(output: str) -> list[tuple[str, str, str, str, str]]:
+    observations: list[tuple[str, str, str, str, str]] = []
+    ssid = ""
+    security_parts: list[str] = []
+    bssid_record: dict[str, str] | None = None
+
+    def flush() -> None:
+        nonlocal bssid_record
+        if bssid_record is not None:
+            observations.append(
+                (
+                    bssid_record["bssid"],
+                    ssid,
+                    bssid_record.get("channel", ""),
+                    bssid_record.get("signal", ""),
+                    " ".join(security_parts),
+                )
+            )
+            if len(observations) > _MAX_DEVICES:
+                raise InventoryImportError("OS Wi-Fi listing exceeds the device limit.")
+        bssid_record = None
+
+    for raw_line in output.splitlines():
+        line = raw_line.rstrip("\r")
+        ssid_match = _NETSH_SSID_LINE.match(line)
+        if ssid_match:
+            flush()
+            ssid = ssid_match.group(1).strip()
+            security_parts = []
+            continue
+        bssid_match = _NETSH_BSSID_LINE.match(line)
+        if bssid_match:
+            flush()
+            bssid_record = {"bssid": bssid_match.group(1)}
+            continue
+        field_match = _NETSH_FIELD_LINE.match(line)
+        if not field_match:
+            continue
+        key = field_match.group(1).strip().lower()
+        value = field_match.group(2)
+        if bssid_record is not None:
+            if key in {"signal", "sinal"}:
+                bssid_record["signal"] = value.rstrip("%").strip()
+            elif key in {"channel", "canal"}:
+                bssid_record["channel"] = value
+        elif key.startswith(("authentication", "autentica", "encryption", "criptografia")):
+            security_parts.append(value)
+    flush()
+    return observations
+
+
+def _parse_os_channel(value: str) -> int:
+    try:
+        channel = int(value.strip())
+    except ValueError as error:
+        raise InventoryImportError(
+            "Wi-Fi channel must be an integer from 1 to 233."
+        ) from error
+    if not 1 <= channel <= 233:
+        raise InventoryImportError("Wi-Fi channel must be an integer from 1 to 233.")
+    return channel
+
+
+def _signal_percent_to_dbm(value: str) -> int:
+    """Estimate dBm from the 0-100 signal quality reported by nmcli/netsh."""
+    try:
+        percent = int(value.strip())
+    except ValueError as error:
+        raise InventoryImportError("Wi-Fi signal must be a 0-100 percentage.") from error
+    if not 0 <= percent <= 100:
+        raise InventoryImportError("Wi-Fi signal must be a 0-100 percentage.")
+    return max(-127, min(0, round(percent / 2 - 100)))
+
+
+def _classify_os_security(descriptor: str) -> str:
+    text = descriptor.upper()
+    if "WEP" in text:
+        return "wep"
+    if "WPA2" in text:
+        return "wpa2"
+    if "WPA3" in text or "SAE" in text or "OWE" in text:
+        return "wpa3"
+    stripped = text.strip()
+    if not stripped or stripped == "--" or "OPEN" in text or "ABERT" in text:
+        return "open"
+    return "unknown"
+
+
+def publish_wifi_inventory(
+    event_bus: EventBus,
+    run_id: UUID,
+    inventory: WifiInventory,
+    *,
+    source: str,
+    discarded_count: int = 0,
+) -> Event:
+    """Publish a Wi-Fi inventory on the EventBus, regardless of its origin."""
+    if source not in {"os_passive", "file_import"}:
+        raise ValueError("source must be 'os_passive' or 'file_import'.")
+    authorization = inventory.authorization
+    event = Event(
+        run_id=run_id,
+        name=WIFI_INVENTORY_EVENT,
+        payload={
+            "approval_reference": authorization.reference,
+            "approved_by": authorization.approved_by,
+            "activity": authorization.activity,
+            "source": source,
+            "rssi_estimated": source == "os_passive",
+            "access_point_count": len(inventory.access_points),
+            "discarded_count": discarded_count,
+            "access_points": tuple(
+                {
+                    "bssid": access_point.bssid,
+                    "ssid": access_point.ssid,
+                    "channel": access_point.channel,
+                    "rssi_dbm": access_point.rssi_dbm,
+                    "security": access_point.security,
+                    "observed_at_utc": access_point.observed_at_utc.isoformat().replace(
+                        "+00:00", "Z"
+                    ),
+                }
+                for access_point in inventory.access_points
+            ),
+        },
+    )
+    event_bus.publish(event)
+    return event
+
+
+def run_wifi_inventory_module(
+    orchestrator: "CoreOrchestrator",
+    run_id: UUID,
+    authorization: InventoryAuthorization,
+) -> WifiInventory:
+    """Run the registered Wi-Fi adapter as a scope-gated module.
+
+    The adapter must be registered in ``orchestrator.modules`` under
+    ``WifiInventoryAdapter.ACTIVITY``; the same name must be authorized by the
+    validated scope, and the authorization allowlist must be within the scope
+    targets. ``record_module_execution`` enforces RUNNING, scope validity and
+    the kill-switch before any OS command runs.
+    """
+    adapter = orchestrator.modules.get(WifiInventoryAdapter.ACTIVITY)
+    if not isinstance(adapter, WifiInventoryAdapter):
+        raise TypeError("Registered Wi-Fi module must be a WifiInventoryAdapter.")
+    try:
+        scope = orchestrator.get_validated_scope(run_id)
+    except KeyError as error:
+        raise ScopeValidationError(
+            "Wi-Fi inventory requires a validated scope."
+        ) from error
+    adapter.assert_authorization_current(authorization)
+    scope_targets = {target.lower() for target in scope.allowed_targets}
+    if not authorization.allowed_targets <= scope_targets:
+        raise ScopeValidationError(
+            "Authorization allowlist exceeds the validated scope targets."
+        )
+    orchestrator.record_module_execution(run_id, WifiInventoryAdapter.ACTIVITY)
+    with orchestrator.get_operational_limits(run_id).begin_operation():
+        inventory, discarded_count = adapter._collect_from_os(authorization)
+    orchestrator.kill_switch.assert_clear()
+    publish_wifi_inventory(
+        orchestrator.events,
+        run_id,
+        inventory,
+        source="os_passive",
+        discarded_count=discarded_count,
+    )
+    return inventory
