@@ -185,6 +185,7 @@ class LocalDashboard:
         style.configure("Posture.VULNERABLE.TLabel", foreground="#a85d00")
         style.configure("Posture.ATTACK.TLabel", foreground="#b42318")
         style.configure("Posture.PENDING.TLabel", foreground="#475467")
+        self._ui_scale = max(1.0, float(root.tk.call("tk", "scaling")) / (96 / 72))
         style.configure(
             "Treeview",
             rowheight=int(font.nametofont("TkDefaultFont").metrics("linespace") * 1.4),
@@ -311,11 +312,11 @@ class LocalDashboard:
         self._findings_table.heading("mitre", text="MITRE ATT&CK")
         self._findings_table.heading("status", text="Status")
         self._findings_table.heading("summary", text="Resumo")
-        self._findings_table.column("severity", width=100, stretch=False)
-        self._findings_table.column("event", width=220, stretch=False)
-        self._findings_table.column("mitre", width=110, stretch=False)
-        self._findings_table.column("status", width=145, stretch=False)
-        self._findings_table.column("summary", width=420, stretch=True)
+        self._findings_table.column("severity", width=self._px(100), stretch=False)
+        self._findings_table.column("event", width=self._px(220), stretch=False)
+        self._findings_table.column("mitre", width=self._px(110), stretch=False)
+        self._findings_table.column("status", width=self._px(145), stretch=False)
+        self._findings_table.column("summary", width=self._px(420), stretch=True)
         self._findings_table.bind(
             "<<TreeviewSelect>>",
             self._show_selected_finding,
@@ -352,11 +353,11 @@ class LocalDashboard:
         self._wireless_table.heading("identifier", text="BSSID / Endereço")
         self._wireless_table.heading("name", text="SSID / Nome")
         self._wireless_table.heading("details", text="Detalhes")
-        self._wireless_table.column("severity", width=100, stretch=False)
-        self._wireless_table.column("kind", width=70, stretch=False)
-        self._wireless_table.column("identifier", width=150, stretch=False)
-        self._wireless_table.column("name", width=200, stretch=False)
-        self._wireless_table.column("details", width=420, stretch=True)
+        self._wireless_table.column("severity", width=self._px(100), stretch=False)
+        self._wireless_table.column("kind", width=self._px(70), stretch=False)
+        self._wireless_table.column("identifier", width=self._px(150), stretch=False)
+        self._wireless_table.column("name", width=self._px(200), stretch=False)
+        self._wireless_table.column("details", width=self._px(420), stretch=True)
         wireless_scroll = ttk.Scrollbar(
             wireless_frame,
             orient=tk.VERTICAL,
@@ -439,6 +440,9 @@ class LocalDashboard:
         )
 
         self._root.after(100, self._poll)
+
+    def _px(self, width: int) -> int:
+        return round(width * self._ui_scale)
 
     @staticmethod
     def _add_value(
