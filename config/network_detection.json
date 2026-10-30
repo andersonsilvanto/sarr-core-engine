@@ -1,0 +1,10 @@
+{
+  "port_scan_unique_ports": 10,
+  "window_seconds": 5,
+  "syn_flood_threshold_per_second": 50,
+  "max_tracked_ips": 4096,
+  "max_blocked_ips": 256,
+  "inactive_timeout_seconds": 120,
+  "cooldown_seconds": 30,
+  "allowlist": ["127.0.0.1/32", "::1/128"]
+}

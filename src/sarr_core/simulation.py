@@ -35,7 +35,9 @@ from sarr_core.external_scanners import ExternalScannerManager
 
 _FILE_BASELINES = {
     "config/dashboard.schema.json": "d92ec42429b3040fa8d6c6ace0c780b03a8e29a542a45864fd13c2150d2dbb1d",
+    "config/network_detection.json": "206bd6a36ac15a2f3c0f2a636c986c61ab956aef1688805ad9f55ffe1999dd77",
     "schemas/dashboard.schema.json": "cb365b4e840274535eed412f0f964cc40dbe73415b46531b2aeea3e3d01ecf83",
+    "schemas/network_detection.schema.json": "9789518c69196f15ae399c3201e2d623f23416f8a0851d8a60d7e1e708c8b0ba",
     "schemas/scope.schema.json": "b2f3aad232639b1cb426ecdc5e8af20d4f903f630abc3e68d3c93460bc53d82a",
     "config/canary_credentials.json": "0e0327a52fce728467937890299c8ae121e19b398c1855445323c6056e3ec9a6",
 }

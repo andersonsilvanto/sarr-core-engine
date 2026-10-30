@@ -93,7 +93,9 @@ class SecuritySimulationTests(unittest.TestCase):
             {
                 "config/dashboard.schema.json",
                 "config/canary_credentials.json",
+                "config/network_detection.json",
                 "schemas/dashboard.schema.json",
+                "schemas/network_detection.schema.json",
                 "schemas/scope.schema.json",
             },
         )
@@ -489,7 +491,9 @@ class SecuritySimulationTests(unittest.TestCase):
             for relative_path in (
                 "config/dashboard.schema.json",
                 "config/canary_credentials.json",
+                "config/network_detection.json",
                 "schemas/dashboard.schema.json",
+                "schemas/network_detection.schema.json",
                 "schemas/scope.schema.json",
             ):
                 source = Path(__file__).resolve().parents[1] / relative_path
@@ -539,7 +543,9 @@ class SecuritySimulationTests(unittest.TestCase):
             for relative_path in (
                 "config/dashboard.schema.json",
                 "config/canary_credentials.json",
+                "config/network_detection.json",
                 "schemas/dashboard.schema.json",
+                "schemas/network_detection.schema.json",
                 "schemas/scope.schema.json",
             ):
                 source = Path(__file__).resolve().parents[1] / relative_path
